@@ -52,6 +52,7 @@ pref=math.sqrt(2.0*eps*deltat)
 
 #make the list to store positions in
 bins=np.array([0 for i in range(201)])
+rejbins=np.array([0 for i in range(201)])
 
 
 print("======================================")
@@ -133,7 +134,21 @@ if Potential is 2:
       return 1.0721543149542532
     else:
       return -14.791421760952044 + x*(39.60471112332303 + 368.7276721204482*x)
-    
+
+# =======================================================
+# Potential 3
+# =======================================================
+
+if Potential is 2:
+  def pot(x):
+    (3*x - 4)**4*(3*x + 2)**2/1024
+
+  def force(x):
+    27*x*(-81*x**4 + 270*x**3 - 216*x**2 - 96*x + 128)/512
+
+  def A(x):
+    10935*x**4/512 - 3645*x**3/64 + 2187*x**2/64 + 81*x/8 - 27/4
+
 # =======================================================
 # Sinc function
 # =======================================================
@@ -214,6 +229,8 @@ for i in range(Nb):
       else:
         rej=rej+1
         x1=x0
+        rejbins[int((x0+10.)*10.)]+=1
+        
     else:
       acc=acc+1
 
@@ -253,4 +270,5 @@ print("%i,%i,%i,%f,%f,%f,%i,%f,%f,%f,%f,%f,%i" %\
 
 print np.array2string(np.linspace(-10,10,200), separator=', ',max_line_width=99999)[1:-1]
 print np.array2string(bins, separator=', ',max_line_width=99999)[1:-1]
+print np.array2string(rejbins, separator=', ',max_line_width=99999)[1:-1]
 print("======================================")
