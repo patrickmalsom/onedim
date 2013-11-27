@@ -139,7 +139,7 @@ if Potential is 2:
 # Potential 3
 # =======================================================
 
-if Potential is 2:
+if Potential is 3:
   def pot(x):
     (3*x - 4)**4*(3*x + 2)**2/1024
 
