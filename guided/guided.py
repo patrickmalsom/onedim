@@ -5,6 +5,16 @@
 # Patrick Malsom, spring 2014
 # ==================================
 
+# Program outline
+# input control functions: m(t) and A(t)
+# input potential: U(t)
+# input hermite params for m and A
+#
+# run the simulation many times and generate the expectation values ev{0,4}
+# take the dot product dD/dA * dA/da * HH * {A,m}
+# make changes to the hermite params using steepest descent
+# repeat entire routine
+
 # import libraries
 import random
 import time
@@ -12,6 +22,25 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 
+
+# ================================================================
+#                       Input Parameters
+# ================================================================
+# m0
+mPlus=0.969624
+gammam=2.0
+tm=5.0
+# A0
+APlus=7.52137
+AHalf=-7.0
+gammaA=10.0
+tA=5.0
+# mH
+gammamH=2.0
+mHList=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+# AH
+gammaAH=10.0
+AHList=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 # define some constants of the simulation
 Nb=10001
@@ -23,38 +52,65 @@ h=math.sqrt(2.0*deltat)
 T=Nu*deltat
 pref=math.sqrt(2.0*eps*deltat)
 
-# list of the nth hermite polynomial (max n is 15) and saves to a list 
-# (hardcoded for compatibility with older nupy versions)
-#HermiteH = [np.array([1.]),\
-#np.array([0.,2.]),\
-#np.array([-2.,0.,4.]),\
-#np.array([0.,-12.,0.,8.]),\
-#np.array([12.,0.,-48.,0.,16.]),\
-#np.array([0.,120.,0.,-160.,0.,32.]),\
-#np.array([-120.,0.,720.,0.,-480.,0.,64.]),\
-#np.array([0.,-1680.,0.,3360.,0.,-1344.,0.,128.]),\
-#np.array([1680.,0.,-13440.,0.,13440.,0.,-3584.,0.,256.]),\
-#np.array([0.,30240.,0.,-80640.,0.,48384.,0.,-9216.,0.,512.]),\
-#np.array([-30240.,0.,302400.,0.,-403200.,0.,161280.,0.,-23040.,0.,1024.]),\
-#np.array([0.00000000e+00,-6.65280000e+05,0.00000000e+00,2.21760000e+06,0.00000000e+00,-1.77408000e+06,0.00000000e+00,5.06880000e+05,0.00000000e+00,-5.63200000e+04,0.00000000e+00,2.04800000e+03]),\
-#np.array([6.65280000e+05,0.00000000e+00,-7.98336000e+06,0.00000000e+00,1.33056000e+07,0.00000000e+00,-7.09632000e+06,0.00000000e+00,1.52064000e+06,0.00000000e+00,-1.35168000e+05,0.00000000e+00,4.09600000e+03]),\
-#np.array([0.00000000e+00,1.72972800e+07,0.00000000e+00,-6.91891200e+07,0.00000000e+00,6.91891200e+07,0.00000000e+00,-2.63577600e+07,0.00000000e+00,4.39296000e+06,0.00000000e+00,-3.19488000e+05,0.00000000e+00,8.19200000e+03]),\
-#np.array([-1.72972800e+07,0.00000000e+00,2.42161920e+08,0.00000000e+00,-4.84323840e+08,0.00000000e+00,3.22882560e+08,0.00000000e+00,-9.22521600e+07,0.00000000e+00,1.23002880e+07,0.00000000e+00,-7.45472000e+05,0.00000000e+00,1.63840000e+04]),\
-#np.array([0.00000000e+00,-5.18918400e+08,0.00000000e+00,2.42161920e+09,0.00000000e+00,-2.90594304e+09,0.00000000e+00,1.38378240e+09,0.00000000e+00,-3.07507200e+08,0.00000000e+00,3.35462400e+07,0.00000000e+00,-1.72032000e+06,0.00000000e+00,3.27680000e+04])]
-# computes the normalizations of the nth hermite polynomial (max n is 15) and saves to a list
-#HermiteHPref = [alpha**0.25 / math.sqrt(2.0**(n)*math.factorial(n)*math.sqrt(np.pi)) for n in range(16)]
+# ================================================================
+#                     Function Definitions
+# ================================================================
+def mZero(t):
+    return mPlus*math.tanh(gammam * (t-tm))
+
+def AZero(t):
+    return APlus + AHalf*math.exp(-gammaA*(t-tA)**2)
+
+def mHermite(t):
+    
+    # list of the nth hermite polynomial (max n is 15) and saves to a list 
+    HermiteH = [\
+    [1. , 0.  , 0.  , 0.   , 0. , 0. ],\
+    [0. , 2.  , 0.  , 0.   , 0. , 0. ],\
+    [-2., 0.  , 4.  , 0.   , 0. , 0. ],\
+    [0. , -12., 0.  , 8.   , 0. , 0. ],\
+    [12., 0.  , -48., 0.   , 16., 0. ],\
+    [0. , 120., 0.  , -160., 0. , 32.]]
+
+
+    # TODO need to figure out how to normalize these functions
+    # computes the normalizations of the nth hermite polynomial (max n is 15) and saves to a list
+    # HermiteHPref = [alpha**0.25 / math.sqrt(2.0**(n)*math.factorial(n)*math.sqrt(np.pi)) for n in range(16)]
+
+    return math.exp(-gammamH*(t-tm)**2) * np.sum( [ mHList[j] * np.sum( [t**n * HermiteH[j][n]  for n in range(len(HermiteH))] ) for j in range(len(HermiteH)) ])
 
 def m(t):
-    return 0.969624*math.tanh(2.0 * (t-4.8))
+    return mZero(t) + mHermite(t)
 
-def A( t):
-    return -7.0*math.exp( -4.0 * (t - 5.0) * (t-5.0) )+7.52137
+def AHermite(t):
+    
+    # list of the nth hermite polynomial (max n is 15) and saves to a list 
+    HermiteH = [\
+    np.array([1. , 0.  , 0.  , 0.   , 0. , 0. ]),\
+    np.array([0. , 2.  , 0.  , 0.   , 0. , 0. ]),\
+    np.array([-2., 0.  , 4.  , 0.   , 0. , 0. ]),\
+    np.array([0. , -12., 0.  , 8.   , 0. , 0. ]),\
+    np.array([12., 0.  , -48., 0.   , 16., 0. ]),\
+    np.array([0. , 120., 0.  , -160., 0. , 32.])]
 
-def U0(x, mean, width):
-    return 0.5*( (x - mean) * (x - mean) ) * width
+
+    # TODO need to figure out how to normalize these functions
+    # computes the normalizations of the nth hermite polynomial (max n is 15) and saves to a list
+    # HermiteHPref = [alpha**0.25 / math.sqrt(2.0**(n)*math.factorial(n)*math.sqrt(np.pi)) for n in range(16)]
+
+    return math.exp(-gammaAH*(t-tA)**2) * np.sum( [ AHList[j] * np.sum( [t**n * HermiteH[j][n]  for n in range(len(HermiteH))] ) for j in range(len(HermiteH)) ])
+
+def A(t):
+    return AZero(t) + AHermite(t)
 
 def U(x):
     return (x*x - 1.0)**2.0
+
+# =================================================================
+#                     Static Functions
+# ================================================================
+def U0(x, mean, width):
+    return 0.5*( (x - mean) * (x - mean) ) * width
 
 def DeltaU(x, mean, width):
     return U(x) - U0(x,mean,width)
@@ -64,6 +120,11 @@ def genStep(x0, v0h, deltat, thalf):
 
 def energyChange(x0, x1, t0, t1, thalf):
     return U0(x1,m(t1),A(t1)) - U0(x0,m(t0),A(t0)) - (x1-x0)*A(thalf)*(x1+x0-2.0*m(thalf))*0.5
+
+
+# =================================================================
+#                     Start of MAIN loop
+# =================================================================
 
 # Start the timer
 pretime=time.time()
@@ -77,7 +138,7 @@ ev3=[0.0 for i in range(Nb)]
 ev4=[0.0 for i in range(Nb)]
 
 # number of loops per steepest descent loop
-loops=10
+loops=1
 # number of steep descent loops
 SDloops=1
 
@@ -87,9 +148,6 @@ for runs in range(loops):
 
     x0=xStart
     x1=xStart
-
-    #m0=-0.969624
-    #A0=7.52137
 
     acc=0
     rej=0
@@ -118,11 +176,13 @@ for runs in range(loops):
         xPath[i]=x1
         # calculate the expections and means
         meanxPath[i]+=x1
-        ev0[i]+= DeltaU(x1,m(t1),A(t1))
-        ev1[i]+= (-(x1-m(t1))*A(t1))
-        ev2[i]+= (-(x1-m(t1))*A(t1))*DeltaU(x1,m(t1),A(t1))
-        ev3[i]+= (0.5*(x1-m(t1))**2)
-        ev4[i]+= (0.5*(x1-m(t1))**2)*DeltaU(x1,m(t1),A(t1))
+        mt1=m(t1)
+        At1=A(t1)
+        ev0[i]+= DeltaU(x1,mt1,At1)
+        ev1[i]+= (-(x1-mt1)*At1)
+        ev2[i]+= (-(x1-mt1)*At1)*DeltaU(x1,mt1,At1)
+        ev3[i]+= (0.5*(x1-mt1)**2)
+        ev4[i]+= (0.5*(x1-mt1)**2)*DeltaU(x1,mt1,At1)
 
 # normalize the expectations
 meanxPath= [ meanxPath[i]/float(loops) for i in range(Nb) ]
@@ -132,6 +192,11 @@ ev2= [ ev2[i]/float(loops) for i in range(Nb) ]
 ev3= [ ev3[i]/float(loops) for i in range(Nb) ]
 ev4= [ ev4[i]/float(loops) for i in range(Nb) ]
 
+
+# =================================================================
+#                     End of MAIN loop
+# =================================================================
+
 print time.time()-pretime
 
 # <codecell>
@@ -139,9 +204,9 @@ print time.time()-pretime
 print "accept: %d" % acc
 print "reject: %d" % rej
 
-#plot([t for t in linspace(0,(Nb-1)*deltat,Nb)],xPath)
-#plot([t for t in linspace(0,(Nb-1)*deltat,Nb)],[m(t) for t in linspace(0,(Nb-1)*deltat,Nb)])
-#plot([t for t in linspace(0,(Nb-1)*deltat,Nb)],meanxPath)
-#plot([t for t in linspace(0,(Nb-1)*deltat,Nb)], [ 0.969624*math.tanh(2.0 * (t-5.)) for t in linspace(0,10,Nb)])
-#show()
+#plt.plot([t for t in np.linspace(0,(Nb-1)*deltat,Nb)],xPath)
+#plt.plot([t for t in np.linspace(0,(Nb-1)*deltat,Nb)],[m(t) for t in np.linspace(0,(Nb-1)*deltat,Nb)])
+#plt.plot([t for t in np.linspace(0,(Nb-1)*deltat,Nb)],meanxPath)
+#plt.plot([t for t in np.linspace(0,(Nb-1)*deltat,Nb)], [ 0.969624*math.tanh(2.0 * (t-5.)) for t in np.linspace(0,10,Nb)])
+#plt.show()
 
