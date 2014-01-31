@@ -122,7 +122,7 @@ ev3=[0.0 for i in range(Nb)]
 ev4=[0.0 for i in range(Nb)]
 
 # number of loops per steepest descent loop
-loops=2
+loops=10
 # number of steep descent loops
 SDloops=1
 
