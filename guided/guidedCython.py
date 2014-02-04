@@ -21,36 +21,62 @@ from guidedCython import *
 
 
 # import libraries
-import random
 import time
 import math
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
 
 
+# ================================================================
+#                       Class Definitions
+# ================================================================
+class params:
+  """ class to store parameters"""
+  mPlus = None
+  gammam = None
+  tm = None
+  gammamH = None
+  mHList = None
+  APlus  = None
+  AHalf = None
+  gammaA = None
+  tA = None
+  gammaAH = None
+  AHList = None
+
+class stats:
+  ev0 = None
+  ev1 = None
+  ev2 = None
+  ev3 = None
+  ev4 = None
+  xpath = None
+  xxpath = None
+  
+  
 # ================================================================
 #                       Input Parameters
 # ================================================================
 # m0
-mPlus=0.969624
-gammam=2.0
-tm=5.
+params.mPlus=0.969624
+params.gammam=2.0
+params.tm=5.
 # mH
-gammamH=2.0
-mHList=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+params.gammamH=2.0
+params.mHList=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 # for plots
-mPrintString= "mean parameters \n m+: " + str(mPlus) + "\n gammam: " + str(gammam) + "\n tm: " + str(tm) + "\n gammamH: " + str(gammamH) + "\n " + str(mHList)
+mPrintString= "mean parameters \n m+: " + str(params.mPlus) + "\n gammam: " + str(params.gammam) + "\n tm: " + str(params.tm) + "\n gammamH: " + str(params.gammamH) + "\n " + str(params.mHList)
 
 # A0
-APlus=7.52137
-AHalf=-7.0
-gammaA=10.0
-tA=5.0
+params.APlus=7.52137
+params.AHalf=-7.0
+params.gammaA=10.0
+params.tA=5.0
 # AH
-gammaAH=10.0
-AHList=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+params.gammaAH=10.0
+params.AHList=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 # for plots
-APrintString= "A parameters \n A+: " + str(APlus) + "\n AHalf: " + str(AHalf) + "\n gammaA: " + str(gammaA) + "\n tA: " + str(tA) + "\n gammaAH: " + str(gammaAH) + "\n " + str(AHList)
+APrintString= "A parameters \n A+: " + str(params.APlus) + "\n AHalf: " + str(params.AHalf) + "\n gammaA: " + str(params.gammaA) + "\n tA: " + str(params.tA) + "\n gammaAH: " + str(params.gammaAH) + "\n " + str(params.AHList)
 
 # define some constants of the simulation
 Nb=10001
@@ -80,19 +106,19 @@ pref=math.sqrt(2.0*eps*deltat)
 #    return np.sum( [ (t-tH)**k * HermitePolys[n][k] for k in range(len(HermitePolys[n])) ] )
 
 def mZero(t):
-  return mPlus*math.tanh(gammam * (t-tm))
+  return params.mPlus*math.tanh(params.gammam * (t-params.tm))
 
 def mHermite(t):
-  return math.exp(-gammamH*(t-tm)**2) * np.sum( [ mHList[j] * HH(t,j,tm,gammamH)  for j in range(6) ])
+  return math.exp(-params.gammamH*(t-params.tm)**2) * np.sum( [ params.mHList[j] * HH(t,j,params.tm,params.gammamH)  for j in range(6) ])
 
 def m(t):
   return mZero(t) + mHermite(t)
 
 def AZero(t):
-  return APlus + AHalf*math.exp(-gammaA*(t-tA)**2)
+  return params.APlus + params.AHalf*math.exp(-params.gammaA*(t-params.tA)**2)
 
 def AHermite(t):
-  return math.exp(-gammaAH*(t-tA)**2) * np.sum( [ AHList[j] * HH(t,j,tA,gammaAH)  for j in range(6) ])
+  return math.exp(-params.gammaAH*(t-params.tA)**2) * np.sum( [ params.AHList[j] * HH(t,j,params.tA,params.gammaAH)  for j in range(6) ])
 
 def A(t):
   return AZero(t) + AHermite(t)
@@ -125,14 +151,14 @@ pretime=time.time()
 
 #initialize a few lists for storage of expectations
 meanxPath=[0.0 for i in range(Nb)]
-ev0=[0.0 for i in range(Nb)]
-ev1=[0.0 for i in range(Nb)]
-ev2=[0.0 for i in range(Nb)]
-ev3=[0.0 for i in range(Nb)]
-ev4=[0.0 for i in range(Nb)]
+stats.ev0=[0.0 for i in range(Nb)]
+stats.ev1=[0.0 for i in range(Nb)]
+stats.ev2=[0.0 for i in range(Nb)]
+stats.ev3=[0.0 for i in range(Nb)]
+stats.ev4=[0.0 for i in range(Nb)]
 
 # number of loops per steepest descent loop
-loops=20
+loops=2
 # number of steep descent loops
 SDloops=1
 
@@ -148,7 +174,7 @@ for runs in range(loops):
 
   for i in range(Nb):
     x0=x1
-    v0h=pref*random.gauss(0,1)
+    v0h=pref*np.random.normal(0,1)
 
     t0=i*deltat
     t1=(i+1)*deltat
@@ -160,7 +186,7 @@ for runs in range(loops):
 
     deltaE = energyChange(x0, x1, t0, t1, thalf)
 
-    if math.exp(-deltaE/eps) >= random.random():
+    if math.exp(-deltaE/eps) >= np.random.random():
       acc=acc+1
 
     else:
@@ -172,19 +198,19 @@ for runs in range(loops):
     meanxPath[i]+=x1
     mt1=m(t1)
     At1=A(t1)
-    ev0[i]+= DeltaU(x1,mt1,At1)
-    ev1[i]+= (-(x1-mt1)*At1)
-    ev2[i]+= (-(x1-mt1)*At1)*DeltaU(x1,mt1,At1)
-    ev3[i]+= (0.5*(x1-mt1)**2)
-    ev4[i]+= (0.5*(x1-mt1)**2)*DeltaU(x1,mt1,At1)
+    stats.ev0[i]+= DeltaU(x1,mt1,At1)
+    stats.ev1[i]+= (-(x1-mt1)*At1)
+    stats.ev2[i]+= (-(x1-mt1)*At1)*DeltaU(x1,mt1,At1)
+    stats.ev3[i]+= (0.5*(x1-mt1)**2)
+    stats.ev4[i]+= (0.5*(x1-mt1)**2)*DeltaU(x1,mt1,At1)
 
 # normalize the expectations
 meanxPath= np.array([ meanxPath[i]/float(loops) for i in range(Nb) ] )
-ev0= np.array([ ev0[i]/float(loops) for i in range(Nb) ] )
-ev1= np.array([ ev1[i]/float(loops) for i in range(Nb) ] )
-ev2= np.array([ ev2[i]/float(loops) for i in range(Nb) ] )
-ev3= np.array([ ev3[i]/float(loops) for i in range(Nb) ] )
-ev4= np.array([ ev4[i]/float(loops) for i in range(Nb) ] )
+stats.ev0= np.array([ stats.ev0[i]/float(loops) for i in range(Nb) ] )
+stats.ev1= np.array([ stats.ev1[i]/float(loops) for i in range(Nb) ] )
+stats.ev2= np.array([ stats.ev2[i]/float(loops) for i in range(Nb) ] )
+stats.ev3= np.array([ stats.ev3[i]/float(loops) for i in range(Nb) ] )
+stats.ev4= np.array([ stats.ev4[i]/float(loops) for i in range(Nb) ] )
 
 
 # =================================================================
@@ -192,8 +218,8 @@ ev4= np.array([ ev4[i]/float(loops) for i in range(Nb) ] )
 # =================================================================
 # This is more complex than normal as there are many different parameters to minimize.
 # hermite part of A
-print [ np.sum( ( (ev0*ev1)-ev2 ) * np.array([ math.exp(-gammamH *(t-tm)**2.0) * HH(t,n,tm,gammamH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)]
-print [ np.sum( ( (ev0*ev3)-ev4 ) * np.array([ math.exp(-gammamH *(t-tA)**2.0) * HH(t,n,tm,gammaAH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)]
+print [ np.sum( ( (stats.ev0*stats.ev1)-stats.ev2 ) * np.array([ math.exp(-params.gammamH *(t-params.tm)**2.0) * HH(t,n,params.tm,params.gammamH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)]
+print [ np.sum( ( (stats.ev0*stats.ev3)-stats.ev4 ) * np.array([ math.exp(-params.gammamH *(t-params.tA)**2.0) * HH(t,n,params.tm,params.gammaAH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)]
 
 print time.time()-pretime
 
@@ -206,8 +232,8 @@ print "reject: %d" % rej
 #                         Plots!
 # =================================================================
 
-f, axarr = plt.subplots(2,2)
 timePlt=[t for t in np.linspace(0,T,Nb)]
+f, axarr = plt.subplots(2,2)
 
 # A plot
 axarr[0,0].plot(timePlt, [A(t) for t in np.linspace(0,T,Nb)])
@@ -220,9 +246,9 @@ axarr[0,1].text(6., -1., mPrintString)
 #axarr[0,1].plot(timePlt, [ 0.969624*math.tanh(2.0 * (t-5.)) for t in np.linspace(0,10,Nb)])
 
 # dD/dA plot
-axarr[1,0].plot(timePlt, (ev0*ev3) - ev4 )
+axarr[1,0].plot(timePlt, (stats.ev0*stats.ev3) - stats.ev4 )
 
 # dD/dm plot
-axarr[1,1].plot(timePlt, (ev0*ev1) - ev2 )
+axarr[1,1].plot(timePlt, (stats.ev0*stats.ev1) - stats.ev2 )
 
 plt.show()
