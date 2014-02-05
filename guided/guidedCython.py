@@ -82,7 +82,7 @@ APrintString= "A parameters \n A+: " + str(params.APlus) + "\n AHalf: " + str(pa
 Nb=10001
 Nu=Nb-1
 eps=0.15
-xStart=-0.969624
+xStart=0.969624
 deltat=0.001
 h=math.sqrt(2.0*deltat)
 T=Nu*deltat
@@ -106,13 +106,15 @@ pref=math.sqrt(2.0*eps*deltat)
 #    return np.sum( [ (t-tH)**k * HermitePolys[n][k] for k in range(len(HermitePolys[n])) ] )
 
 def mZero(t):
-  return params.mPlus*math.tanh(params.gammam * (t-params.tm))
+  return params.mPlus
+#  return params.mPlus*math.tanh(params.gammam * (t-params.tm))
 
 def mHermite(t):
   return math.exp(-params.gammamH*(t-params.tm)**2) * np.sum( [ params.mHList[j] * HH(t,j,params.tm,params.gammamH)  for j in range(6) ])
 
 def m(t):
   return mZero(t) + mHermite(t)
+#  return mZero(t) + mHermite(t)
 
 def AZero(t):
   return params.APlus + params.AHalf*math.exp(-params.gammaA*(t-params.tA)**2)
@@ -149,78 +151,94 @@ def energyChange(x0, x1, t0, t1, thalf):
 # Start the timer
 pretime=time.time()
 
-#initialize a few lists for storage of expectations
-meanxPath=[0.0 for i in range(Nb)]
-stats.ev0=[0.0 for i in range(Nb)]
-stats.ev1=[0.0 for i in range(Nb)]
-stats.ev2=[0.0 for i in range(Nb)]
-stats.ev3=[0.0 for i in range(Nb)]
-stats.ev4=[0.0 for i in range(Nb)]
 
 # number of loops per steepest descent loop
-loops=2
+loops=50
 # number of steep descent loops
-SDloops=1
+SDloops=100
+
+for descents in range(SDloops):
+
+  #initialize a few lists for storage of expectations
+  meanxPath=[0.0 for i in range(Nb)]
+  stats.ev0=[0.0 for i in range(Nb)]
+  stats.ev1=[0.0 for i in range(Nb)]
+  stats.ev2=[0.0 for i in range(Nb)]
+  stats.ev3=[0.0 for i in range(Nb)]
+  stats.ev4=[0.0 for i in range(Nb)]
+
+  for runs in range(loops):
+    xPath=[0.0 for i in range(Nb)]
+
+    x0=xStart
+    x1=xStart
+
+    acc=0
+    rej=0
+
+    for i in range(Nb):
+      x0=x1
+      v0h=pref*np.random.normal(0,1)
+
+      t0=i*deltat
+      t1=(i+1)*deltat
+      thalf=(i+0.5)*deltat
+
+      # TODO: is it mbar or m(tbar) for the mean???
+      x1= genStep(x0, v0h, deltat, thalf)
+      #x1= m0+((x0-m0)*(1.0 - 0.5*deltat*A0)+v0h)/(1+0.5*deltat*A0)
+
+      deltaE = energyChange(x0, x1, t0, t1, thalf)
+
+      if math.exp(-deltaE/eps) >= np.random.random():
+        acc=acc+1
+
+      else:
+        rej=rej+1
+        x1=x0
+
+      xPath[i]=x1
+      # calculate the expections and means
+      meanxPath[i]+=x1
+      mt1=m(t1)
+      At1=A(t1)
+      stats.ev0[i]+= DeltaU(x1,mt1,At1)
+      stats.ev1[i]+= (-(x1-mt1)*At1)
+      stats.ev2[i]+= (-(x1-mt1)*At1)*DeltaU(x1,mt1,At1)
+      stats.ev3[i]+= (0.5*(x1-mt1)**2)
+      stats.ev4[i]+= (0.5*(x1-mt1)**2)*DeltaU(x1,mt1,At1)
+
+  # normalize the expectations
+  meanxPath= np.array([ meanxPath[i]/float(loops) for i in range(Nb) ] )
+  stats.ev0= np.array([ stats.ev0[i]/float(loops) for i in range(Nb) ] )
+  stats.ev1= np.array([ stats.ev1[i]/float(loops) for i in range(Nb) ] )
+  stats.ev2= np.array([ stats.ev2[i]/float(loops) for i in range(Nb) ] )
+  stats.ev3= np.array([ stats.ev3[i]/float(loops) for i in range(Nb) ] )
+  stats.ev4= np.array([ stats.ev4[i]/float(loops) for i in range(Nb) ] )
 
 
-for runs in range(loops):
-  xPath=[0.0 for i in range(Nb)]
-
-  x0=xStart
-  x1=xStart
-
-  acc=0
-  rej=0
-
-  for i in range(Nb):
-    x0=x1
-    v0h=pref*np.random.normal(0,1)
-
-    t0=i*deltat
-    t1=(i+1)*deltat
-    thalf=(i+0.5)*deltat
-
-    # TODO: is it mbar or m(tbar) for the mean???
-    x1= genStep(x0, v0h, deltat, thalf)
-    #x1= m0+((x0-m0)*(1.0 - 0.5*deltat*A0)+v0h)/(1+0.5*deltat*A0)
-
-    deltaE = energyChange(x0, x1, t0, t1, thalf)
-
-    if math.exp(-deltaE/eps) >= np.random.random():
-      acc=acc+1
-
-    else:
-      rej=rej+1
-      x1=x0
-
-    xPath[i]=x1
-    # calculate the expections and means
-    meanxPath[i]+=x1
-    mt1=m(t1)
-    At1=A(t1)
-    stats.ev0[i]+= DeltaU(x1,mt1,At1)
-    stats.ev1[i]+= (-(x1-mt1)*At1)
-    stats.ev2[i]+= (-(x1-mt1)*At1)*DeltaU(x1,mt1,At1)
-    stats.ev3[i]+= (0.5*(x1-mt1)**2)
-    stats.ev4[i]+= (0.5*(x1-mt1)**2)*DeltaU(x1,mt1,At1)
-
-# normalize the expectations
-meanxPath= np.array([ meanxPath[i]/float(loops) for i in range(Nb) ] )
-stats.ev0= np.array([ stats.ev0[i]/float(loops) for i in range(Nb) ] )
-stats.ev1= np.array([ stats.ev1[i]/float(loops) for i in range(Nb) ] )
-stats.ev2= np.array([ stats.ev2[i]/float(loops) for i in range(Nb) ] )
-stats.ev3= np.array([ stats.ev3[i]/float(loops) for i in range(Nb) ] )
-stats.ev4= np.array([ stats.ev4[i]/float(loops) for i in range(Nb) ] )
-
-
-# =================================================================
-#                     Gradient Descent
-# =================================================================
-# This is more complex than normal as there are many different parameters to minimize.
-# hermite part of A
-print [ np.sum( ( (stats.ev0*stats.ev1)-stats.ev2 ) * np.array([ math.exp(-params.gammamH *(t-params.tm)**2.0) * HH(t,n,params.tm,params.gammamH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)]
-print [ np.sum( ( (stats.ev0*stats.ev3)-stats.ev4 ) * np.array([ math.exp(-params.gammamH *(t-params.tA)**2.0) * HH(t,n,params.tm,params.gammaAH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)]
-
+  # =================================================================
+  #                     Gradient Descent
+  # =================================================================
+  # This is more complex than normal as there are many different parameters to minimize.
+  # hermite part of A
+  print "mean gradients:"
+  meanGrads=np.array( [ np.sum( ( (stats.ev0*stats.ev1)-stats.ev2 ) * np.array([ math.exp(-params.gammamH *(t-params.tm)**2.0) * HH(t,n,params.tm,params.gammamH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)] )
+  print list(meanGrads)
+  print "new mean parameters:"
+  params.mHList=list(np.array( params.mHList ) + 0.0*np.array([0.1,0.1,0.1,0.1,0.1,0.1]) * meanGrads)
+  print params.mHList
+  print " "
+  
+  print "A gradients:"
+  AGrads=np.array( [ np.sum( ( (stats.ev0*stats.ev3)-stats.ev4 ) * np.array([ math.exp(-params.gammamH *(t-params.tA)**2.0) * HH(t,n,params.tm,params.gammaAH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)] )
+  print list(AGrads)
+  print "new A parameters:"
+  params.AHList = list(np.array( params.AHList ) - 0.01*np.array([1.0,1.0,1.0,1.0,1.0,1.0]) * AGrads)
+  print params.AHList
+  print " "
+  
+  
 print time.time()-pretime
 
 # <codecell>
