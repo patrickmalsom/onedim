@@ -25,6 +25,7 @@ import time
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 
 # ================================================================
@@ -153,9 +154,9 @@ pretime=time.time()
 
 
 # number of loops per steepest descent loop
-loops=50
+loops=10
 # number of steep descent loops
-SDloops=100
+SDloops=1
 
 for descents in range(SDloops):
 
@@ -234,39 +235,48 @@ for descents in range(SDloops):
   AGrads=np.array( [ np.sum( ( (stats.ev0*stats.ev3)-stats.ev4 ) * np.array([ math.exp(-params.gammamH *(t-params.tA)**2.0) * HH(t,n,params.tm,params.gammaAH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)] )
   print list(AGrads)
   print "new A parameters:"
-  params.AHList = list(np.array( params.AHList ) - 0.01*np.array([1.0,1.0,1.0,1.0,1.0,1.0]) * AGrads)
+  params.AHList = list(np.array( params.AHList ) - 0.005*np.array([1.0,1.0,1.0,1.0,1.0,1.0]) * AGrads)
   print params.AHList
   print " "
   
   
-print time.time()-pretime
+  print time.time()-pretime
+  
+  # <codecell>
+  
+  print "accept: %d" % acc
+  print "reject: %d" % rej
+  
+  # save the A as a picture
+#  plt.plot([t for t in np.linspace(0,T,Nb)], [A(t) for t in np.linspace(0,T,Nb)])
+#  plt.axis([0, 10, 0, 10])
 
-# <codecell>
 
-print "accept: %d" % acc
-print "reject: %d" % rej
+  # =================================================================
+  #                         Plots!
+  # =================================================================
+  
+  timePlt=[t for t in np.linspace(0,T,Nb)]
+  f, axarr = plt.subplots(2,2)
 
-# =================================================================
-#                         Plots!
-# =================================================================
+  # A plot
+  axarr[0,0].plot(timePlt, [A(t) for t in np.linspace(0,T,Nb)])
+  axarr[0,0].axis([0, 10, 0, 10])
+  #axarr[0,0].text(6., 1., APrintString)
+  
+  # m plot
+  axarr[0,1].plot(timePlt, [m(t) for t in np.linspace(0,(Nb-1)*deltat,Nb)])
+  axarr[0,1].plot(timePlt, meanxPath)
+  #axarr[0,1].text(6., -1., mPrintString)
+  #axarr[0,1].plot(timePlt, [ 0.969624*math.tanh(2.0 * (t-5.)) for t in np.linspace(0,10,Nb)])
+  
+  # dD/dA plot
+  axarr[1,0].plot(timePlt, (stats.ev0*stats.ev3) - stats.ev4 )
 
-timePlt=[t for t in np.linspace(0,T,Nb)]
-f, axarr = plt.subplots(2,2)
+  # dD/dm plot
+  axarr[1,1].plot(timePlt, (stats.ev0*stats.ev1) - stats.ev2 )
+  
+  plt.savefig("HealAstr"+str(1000+descents)[1:]+".jpg", dpi = 400)
+#  plt.show()
+  
 
-# A plot
-axarr[0,0].plot(timePlt, [A(t) for t in np.linspace(0,T,Nb)])
-axarr[0,0].text(6., 1., APrintString)
-
-# m plot
-axarr[0,1].plot(timePlt, [m(t) for t in np.linspace(0,(Nb-1)*deltat,Nb)])
-axarr[0,1].plot(timePlt, meanxPath)
-axarr[0,1].text(6., -1., mPrintString)
-#axarr[0,1].plot(timePlt, [ 0.969624*math.tanh(2.0 * (t-5.)) for t in np.linspace(0,10,Nb)])
-
-# dD/dA plot
-axarr[1,0].plot(timePlt, (stats.ev0*stats.ev3) - stats.ev4 )
-
-# dD/dm plot
-axarr[1,1].plot(timePlt, (stats.ev0*stats.ev1) - stats.ev2 )
-
-plt.show()
