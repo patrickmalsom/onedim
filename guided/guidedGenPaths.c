@@ -30,8 +30,7 @@ returns: file named "outfileName-numLoops.dat" that contains all stats
 #define TEMP    0.15
 #define NUMb    10001
 #define DELTAt  0.001
-#define PREF    0.044721359549995794 // Sqrt[2 deltat]
-#define XSTART  -1.0
+//#define XSTART  -1.0
 
 
 //Stores m, A, and KL distance expectation values
@@ -70,6 +69,8 @@ int main(int argc, char *argv[])
   int loop;
 
   double v0h;
+  double v0hPref=sqrt(2.0*DELTAt*TEMP);
+  printf("v0hpref:%+0.15e\n",v0hPref);
   double deltaE;
 
   double evXM;
@@ -120,21 +121,22 @@ int main(int argc, char *argv[])
   for(loop=0; loop<atoi(argv[1]);loop++)
   {
     for(RNGcount=0;RNGcount<NUMb; RNGcount++){
-      GaussRand[RNGcount]= gsl_ran_gaussian(RanNumPointer,1.0);
+      GaussRand[RNGcount]= gsl_ran_gaussian_ziggurat(RanNumPointer,1.0);
     }
     for(RNGcount=0;RNGcount<NUMb; RNGcount++){
       UniformRand[RNGcount]= gsl_rng_uniform(RanNumPointer);
     }
 
-    x0=XSTART;
-    x1=XSTART;
+    //x0=XSTART;
+    //x1=XSTART;
+    x0=-0.9;
+    x1=-0.9;
     
-
     // generating the single path
     for(beadInc=0; beadInc<NUMb; beadInc++)
     {
       x0=x1;
-      v0h=PREF*GaussRand[beadInc];
+      v0h=v0hPref*GaussRand[beadInc];
 
       x1=genStep(x0, v0h, bead, beadInc);
 
@@ -152,6 +154,7 @@ int main(int argc, char *argv[])
       evXM= x1-bead[beadInc+1].m; // x - m
       evUU0 = DeltaU(x1, bead, beadInc); // U - U0
       evA = bead[beadInc+1].A; // A
+      printf("x1 : %+0.10e \n",x1);
 
       bead[beadInc].xbar+=x1;
       bead[beadInc].xxbar+=x1*x1;
@@ -178,7 +181,8 @@ int main(int argc, char *argv[])
 //genStep: 
 double genStep(double x0, double v0h, averages* bead, int n)
 {
-  return x0 + v0h + DELTAt * ( bead[n+1].A*bead[n+1].m +bead[n].A*(bead[n].m - x0)) / (1.0 + DELTAt * bead[n+1].A);
+//  return x0 + v0h + DELTAt * ( bead[n+1].A*bead[n+1].m +bead[n].A*(bead[n].m - x0)) / (1.0 + DELTAt * bead[n+1].A);
+  return ( x0 + v0h + 0.5*DELTAt*( bead[n+1].A*bead[n+1].m + bead[n].A*(bead[n].m - x0)) ) / ( 1.0 + 0.5*bead[n+1].A );
 }
 
 // =========================================
