@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 
   double v0h;
   double v0hPref=sqrt(2.0*DELTAt*TEMP);
-  printf("v0hpref:%+0.15e\n",v0hPref);
+  //printf("v0hpref:%+0.15e\n",v0hPref);
   double deltaE;
 
   double evXM;
@@ -137,6 +137,8 @@ int main(int argc, char *argv[])
     {
       x0=x1;
       v0h=v0hPref*GaussRand[beadInc];
+      //printf("x1 : %+0.10e    v0h: %0.10e \n",x1,v0h);
+      //printf("x1 : %0.10e     m: %0.10e \n",x1,bead[beadInc].m);
 
       x1=genStep(x0, v0h, bead, beadInc);
 
@@ -154,7 +156,6 @@ int main(int argc, char *argv[])
       evXM= x1-bead[beadInc+1].m; // x - m
       evUU0 = DeltaU(x1, bead, beadInc); // U - U0
       evA = bead[beadInc+1].A; // A
-      printf("x1 : %+0.10e \n",x1);
 
       bead[beadInc].xbar+=x1;
       bead[beadInc].xxbar+=x1*x1;
@@ -166,7 +167,7 @@ int main(int argc, char *argv[])
     }
   }
  
-  printf("acc:%d   rej:%d \n",acc,rej);
+  //printf("acc:%d   rej:%d \n",acc,rej);
   // write out the file
   writeConfig(bead, argc, argv);
 
@@ -182,14 +183,26 @@ int main(int argc, char *argv[])
 double genStep(double x0, double v0h, averages* bead, int n)
 {
 //  return x0 + v0h + DELTAt * ( bead[n+1].A*bead[n+1].m +bead[n].A*(bead[n].m - x0)) / (1.0 + DELTAt * bead[n+1].A);
-  return ( x0 + v0h + 0.5*DELTAt*( bead[n+1].A*bead[n+1].m + bead[n].A*(bead[n].m - x0)) ) / ( 1.0 + 0.5*bead[n+1].A );
+  double ah0=bead[n].A*0.5;
+  double ah1=bead[n+1].A*0.5;
+  double m0=bead[n].m;
+  double m1=bead[n+1].m;
+
+  return m1 + (-m1+v0h+x0+ah0*(m0-x0)*DELTAt)/(1.0+ah1*DELTAt);
+  //return ( x0 + v0h + 0.5*DELTAt*( bead[n+1].A*bead[n+1].m + bead[n].A*(bead[n].m - x0)) ) / ( 1.0 + 0.5*bead[n+1].A );
 }
 
 // =========================================
 //energyChange: x0, x1, t0, t1, thalf
 double energyChange(double x0, double x1, averages* bead, int n)
 {
-  return -(x1-x0)*0.5*( (bead[n+1].A*(x1-bead[n+1].m)) + (bead[n].A*(x0-bead[n].m)) );
+  double A0=bead[n].A;
+  double A1=bead[n+1].A;
+  double m0=bead[n].m;
+  double m1=bead[n+1].m;
+  return 0.5*( (-A0*(m0-x0)*(m0-x1)+A1*(m1-x0)*(m1-x1)) );
+
+  //return -(x1-x0)*0.5*( (bead[n+1].A*(x1-bead[n+1].m)) + (bead[n].A*(x0-bead[n].m)) );
 }
 
 // =========================================
