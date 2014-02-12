@@ -1,0 +1,6 @@
+#!/bin/bash
+
+make clean
+make 
+
+time ./guidedGenPaths.out 10000 124 outfilename testmean.dat testA.dat
