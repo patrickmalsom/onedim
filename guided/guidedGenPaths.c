@@ -223,7 +223,7 @@ void writeConfig(averages* bead, int argc, char* argv[])
   int index;
   char filename[80];
 
-  sprintf(filename, "%s-%s.dat", argv[3], argv[1]);
+  sprintf(filename, "outfiles/%s-%s.dat", argv[3], argv[1]);
   FILE * pWriteStats;
   pWriteStats = fopen(filename, "w");
 
