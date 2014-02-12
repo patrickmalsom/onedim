@@ -30,7 +30,7 @@ returns: file named "outfileName-numLoops.dat" that contains all stats
 #define TEMP    0.15
 #define NUMb    10001
 #define DELTAt  0.001
-//#define XSTART  -1.0
+#define XSTART  -0.97
 
 
 //Stores m, A, and KL distance expectation values
@@ -127,10 +127,8 @@ int main(int argc, char *argv[])
       UniformRand[RNGcount]= gsl_rng_uniform(RanNumPointer);
     }
 
-    //x0=XSTART;
-    //x1=XSTART;
-    x0=-0.9;
-    x1=-0.9;
+    x0=XSTART;
+    x1=XSTART;
     
     // generating the single path
     for(beadInc=0; beadInc<NUMb; beadInc++)
@@ -182,14 +180,12 @@ int main(int argc, char *argv[])
 //genStep: 
 double genStep(double x0, double v0h, averages* bead, int n)
 {
-//  return x0 + v0h + DELTAt * ( bead[n+1].A*bead[n+1].m +bead[n].A*(bead[n].m - x0)) / (1.0 + DELTAt * bead[n+1].A);
   double ah0=bead[n].A*0.5;
   double ah1=bead[n+1].A*0.5;
   double m0=bead[n].m;
   double m1=bead[n+1].m;
 
   return m1 + (-m1+v0h+x0+ah0*(m0-x0)*DELTAt)/(1.0+ah1*DELTAt);
-  //return ( x0 + v0h + 0.5*DELTAt*( bead[n+1].A*bead[n+1].m + bead[n].A*(bead[n].m - x0)) ) / ( 1.0 + 0.5*bead[n+1].A );
 }
 
 // =========================================
@@ -200,9 +196,9 @@ double energyChange(double x0, double x1, averages* bead, int n)
   double A1=bead[n+1].A;
   double m0=bead[n].m;
   double m1=bead[n+1].m;
+
   return 0.5*( (-A0*(m0-x0)*(m0-x1)+A1*(m1-x0)*(m1-x1)) );
 
-  //return -(x1-x0)*0.5*( (bead[n+1].A*(x1-bead[n+1].m)) + (bead[n].A*(x0-bead[n].m)) );
 }
 
 // =========================================
@@ -210,14 +206,15 @@ double pot(double x)
 {
   // U = (x^2-1)^2
   //return 1.0 + x*x*(-2.0 + x*x);
-  return (x*x-1.0)*(x*x-1.0);
+  return (x*x - 1.0)*(x*x - 1.0);
 }
 
 // =========================================
 //DeltaU: x m A
 double DeltaU(double x, averages* bead, int n)
 {
-  return pot(x) - 0.5*bead[n].A*(x - bead[n].m)*(x - bead[n].m);
+  double xminm= x - bead[n].m;
+  return pot(x) - 0.5*bead[n].A*xminm*xminm;
 }
 
 // =========================================
