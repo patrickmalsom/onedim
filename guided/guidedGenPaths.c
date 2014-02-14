@@ -44,18 +44,25 @@ typedef struct _averages
 } averages;
 
 // Function prototypes
+void GenPaths(int loopIters, averages* bead);
 double genStep(double x0, double v0h, averages* bead, int n);
 double energyChange(double x0, double x1, averages* bead, int n);
 double pot(double x);
 double DeltaU(double x, averages* bead, int n);
-void writeConfig(averages* bead, int argc, char* argv[]);
+//void writeConfig(averages* bead, int argc, char* argv[]);
 
 
-// BEGIN MAIN FUNCTION
-int main(int argc, char *argv[])
+void GenPaths(int loopIters, averages* bead)
 {
 
-  averages *bead = calloc(NUMb,sizeof(averages));
+ /* averages *bead = calloc(NUMb,sizeof(averages));
+  int i;  
+  for(i=0;i<NUMb;i++){
+    bead[i].m=mlist[i];
+    bead[i].A=Alist[i];
+  }
+*/
+
   //arrays to store the random numbers in (generate a full path at once)
   double GaussRand[NUMb]; 
   double UniformRand[NUMb]; 
@@ -77,6 +84,7 @@ int main(int argc, char *argv[])
   double evUU0;
   double evA;
 
+/*
   // =========================================
   // Reading in the input control paths (m and A)
   //==========================================
@@ -95,6 +103,7 @@ int main(int argc, char *argv[])
   {
     lineNum++;
   }
+*/
 
   //===============================================================
   // GNU Scientific Library Random Number Setup
@@ -118,7 +127,7 @@ int main(int argc, char *argv[])
   rej=0;
 
   // Perform the sampling
-  for(loop=0; loop<atoi(argv[1]);loop++)
+  for(loop=0; loop<loopIters;loop++)
   {
     for(RNGcount=0;RNGcount<NUMb; RNGcount++){
       GaussRand[RNGcount]= gsl_ran_gaussian_ziggurat(RanNumPointer,1.0);
@@ -167,9 +176,7 @@ int main(int argc, char *argv[])
  
   //printf("acc:%d   rej:%d \n",acc,rej);
   // write out the file
-  writeConfig(bead, argc, argv);
-
-  return(0);
+ // writeConfig(bead, argc, argv);
 }
 
 // =========================================
@@ -218,7 +225,7 @@ double DeltaU(double x, averages* bead, int n)
 }
 
 // =========================================
-void writeConfig(averages* bead, int argc, char* argv[])
+/*void writeConfig(averages* bead, int argc, char* argv[])
 {
   int index;
   char filename[80];
@@ -243,4 +250,5 @@ void writeConfig(averages* bead, int argc, char* argv[])
 
   fclose(pWriteStats);
 }
+*/
 // =========================================
