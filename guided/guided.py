@@ -60,7 +60,7 @@ class Averages(ctypes.Structure):
 # define the array of averages that is to be passed to the C routine
 beadType=Averages*Nb
 # declare what arguments the function takes
-CGenPaths.argtypes = [INT,beadType]
+CGenPaths.argtypes = [INT, INT, beadType]
 CGenPaths.restype = None
 
 # ==========================================================================
@@ -74,7 +74,7 @@ def AZero(t):
 # base function for the width: gaussian well
   return APlus + AHalf*math.exp(-gammaA*(t-tA)**2)
 
-def GenPaths(loops, mlist, Alist):
+def GenPaths(loops, RNGseed, mlist, Alist):
 # call to the C library that will generate a path
 # inputs:
 #   loops: number of trajectories to calculate
@@ -93,7 +93,7 @@ def GenPaths(loops, mlist, Alist):
     for j in range(5):
       bead[i].expVal[j]=0.0
   # call the C routine
-  CGenPaths(ctypes.c_int(loops),bead)
+  CGenPaths(ctypes.c_int(loops), ctypes.c_int(RNGseed), bead)
   # return a numpy array with the averages computed
   return np.array([ [bead[i].m,
                      bead[i].A,
@@ -114,7 +114,7 @@ mlist=[ mZero(t) for t in np.linspace(0,10,Nb)]
 Alist=[ AZero(t) for t in np.linspace(0,10,Nb)]
 
 #generate the paths and store stats in klstats array
-klstats=GenPaths(NumPaths,mlist,Alist)
+klstats=GenPaths(10,13,mlist,Alist)
 
 # ==========================================================================
 # Plots!

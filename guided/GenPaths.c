@@ -38,14 +38,14 @@ typedef struct _averages
 } averages;
 
 // Function prototypes
-void GenPaths(int loopIters, averages* bead);
+void GenPaths(int loopIters, int RNGseed, averages* bead);
 double genStep(double x0, double v0h, averages* bead, int n);
 double energyChange(double x0, double x1, averages* bead, int n);
 double pot(double x);
 double DeltaU(double x, averages* bead, int n);
 
 
-void GenPaths(int loopIters, averages* bead)
+void GenPaths(int loopIters, int RNGseed, averages* bead)
 {
 
   //arrays to store the random numbers in (generate a full path at once)
@@ -76,6 +76,7 @@ void GenPaths(int loopIters, averages* bead)
   gsl_rng_env_setup();
   RanNumType = gsl_rng_default;
   RanNumPointer= gsl_rng_alloc (RanNumType);
+  gsl_rng_set(RanNumPointer, RNGseed);
   int RNGcount;
 
   // =========================================
