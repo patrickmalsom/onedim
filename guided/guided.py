@@ -10,7 +10,7 @@ from subprocess import call
 
 import ctypes
 
-GenPathC=ctypes.CDLL("/home/patrick/git/onedim/guided/guidedGenPaths.so")
+GenPathC=ctypes.CDLL("/home/patrick/git/onedim/guided/GenPaths.so")
 CGenPaths=GenPathC.GenPaths
 
 
