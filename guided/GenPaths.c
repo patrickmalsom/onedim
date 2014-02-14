@@ -1,16 +1,11 @@
-/*   guidedGenPaths.c 
+/*   GenPaths.c 
  *   Written Spring 2014 -- Patrick Malsom
  
- *  Outline of entire C routine: should be as general as possible
-cmd line: ./a.out numLoops randSeed outfileName mean.dat A.dat
-returns: file named "outfileName-numLoops.dat" that contains all stats
+program used to calculate the KL derivative stats.
+takes m(t) and A(t) and generates expectation values.
 
-1. read in m and A
-2. set up random number generator (read about how to do the seeds)
-3. perform the sampling while keeping track of statistics
-4. write out a file with numLoops in file name that have the statistics
+This is just a shared library that is linked with guided.py
 */
-
 
 // =========================================
 // Definitions and Prototypes
@@ -32,7 +27,6 @@ returns: file named "outfileName-numLoops.dat" that contains all stats
 #define DELTAt  0.001
 #define XSTART  -0.97
 
-
 //Stores m, A, and KL distance expectation values
 typedef struct _averages
 {
@@ -49,19 +43,10 @@ double genStep(double x0, double v0h, averages* bead, int n);
 double energyChange(double x0, double x1, averages* bead, int n);
 double pot(double x);
 double DeltaU(double x, averages* bead, int n);
-//void writeConfig(averages* bead, int argc, char* argv[]);
 
 
 void GenPaths(int loopIters, averages* bead)
 {
-
- /* averages *bead = calloc(NUMb,sizeof(averages));
-  int i;  
-  for(i=0;i<NUMb;i++){
-    bead[i].m=mlist[i];
-    bead[i].A=Alist[i];
-  }
-*/
 
   //arrays to store the random numbers in (generate a full path at once)
   double GaussRand[NUMb]; 
@@ -77,52 +62,25 @@ void GenPaths(int loopIters, averages* bead)
 
   double v0h;
   double v0hPref=sqrt(2.0*DELTAt*TEMP);
-  //printf("v0hpref:%+0.15e\n",v0hPref);
   double deltaE;
 
   double evXM;
   double evUU0;
   double evA;
 
-/*
-  // =========================================
-  // Reading in the input control paths (m and A)
-  //==========================================
-  int lineNum;
-
-  lineNum = 0;
-  FILE *fptrm = fopen(argv[4],"r");
-  while( EOF != fscanf(fptrm,"%lf", &(bead[lineNum].m)) ) 
-  {
-    lineNum++;
-  }
-
-  lineNum = 0;
-  FILE *fptrA = fopen(argv[5],"r");
-  while( EOF != fscanf(fptrA,"%lf", &(bead[lineNum].A)) ) 
-  {
-    lineNum++;
-  }
-*/
-
   //===============================================================
   // GNU Scientific Library Random Number Setup
   //===============================================================
-  // Example shell command$ GSL_RNG_SEED=123 ./a.out
   const gsl_rng_type * RanNumType;
   gsl_rng *RanNumPointer;
   gsl_rng_env_setup();
   RanNumType = gsl_rng_default;
   RanNumPointer= gsl_rng_alloc (RanNumType);
   int RNGcount;
-  //printf("Random Number Generator Type: %s \n", gsl_rng_name(RanNumPointer));
-  //printf("RNG Seed: %li \n", gsl_rng_default_seed);
 
   // =========================================
   // Main Loop
   // =========================================
-
-
   acc=0;
   rej=0;
 
@@ -144,8 +102,6 @@ void GenPaths(int loopIters, averages* bead)
     {
       x0=x1;
       v0h=v0hPref*GaussRand[beadInc];
-      //printf("x1 : %+0.10e    v0h: %0.10e \n",x1,v0h);
-      //printf("x1 : %0.10e     m: %0.10e \n",x1,bead[beadInc].m);
 
       x1=genStep(x0, v0h, bead, beadInc);
 
@@ -173,10 +129,6 @@ void GenPaths(int loopIters, averages* bead)
       bead[beadInc].expVal[4] += (0.5*evXM*evXM*evUU0);
     }
   }
- 
-  //printf("acc:%d   rej:%d \n",acc,rej);
-  // write out the file
- // writeConfig(bead, argc, argv);
 }
 
 // =========================================
@@ -224,31 +176,4 @@ double DeltaU(double x, averages* bead, int n)
   return pot(x) - 0.5*bead[n].A*xminm*xminm;
 }
 
-// =========================================
-/*void writeConfig(averages* bead, int argc, char* argv[])
-{
-  int index;
-  char filename[80];
-
-  sprintf(filename, "outfiles/%s-%s.dat", argv[3], argv[1]);
-  FILE * pWriteStats;
-  pWriteStats = fopen(filename, "w");
-
-  for(index=0;index<NUMb;index++)
-  {
-    fprintf(pWriteStats, "%+.15e ", bead[index].m);
-    fprintf(pWriteStats, "%+.15e ", bead[index].A);
-    fprintf(pWriteStats, "%+.15e ", bead[index].xbar);
-    fprintf(pWriteStats, "%+.15e ", bead[index].xxbar);
-    fprintf(pWriteStats, "%+.15e ", bead[index].expVal[0]);
-    fprintf(pWriteStats, "%+.15e ", bead[index].expVal[1]);
-    fprintf(pWriteStats, "%+.15e ", bead[index].expVal[2]);
-    fprintf(pWriteStats, "%+.15e ", bead[index].expVal[3]);
-    fprintf(pWriteStats, "%+.15e ", bead[index].expVal[4]);
-    fprintf(pWriteStats, "\n");
-  }
-
-  fclose(pWriteStats);
-}
-*/
 // =========================================
