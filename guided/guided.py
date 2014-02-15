@@ -14,9 +14,9 @@ import ctypes
 # ==========================================================================
 Nb=10001
 Nu=Nb-1
-NumPaths=1001
+NumPaths=10001
 eps=0.15
-xStart=0.969624
+xStart=-0.969624
 deltat=0.001
 h=math.sqrt(2.0*deltat)
 T=Nu*deltat
@@ -59,6 +59,16 @@ class Averages(ctypes.Structure):
 
 # define the array of averages that is to be passed to the C routine
 beadType=Averages*Nb
+
+class Parameters(ctypes.Structure):
+  _fields_ = [('epsilon', DOUBLE),
+              ('Numbead', INT),
+              ('deltat', DOUBLE),
+              ('xstart', DOUBLE)
+             ]
+# define the array of averages that is to be passed to the C routine
+paramType=Parameters
+
 # declare what arguments the function takes
 CGenPaths.argtypes = [INT, INT, beadType]
 CGenPaths.restype = None
@@ -82,6 +92,14 @@ def GenPaths(loops, RNGseed, mlist, Alist):
 #   Alist: input list for the controlling width
 # outputs: 
 #   returns an array with the expectation values (see wiki)
+
+  # setting up the parameters
+  params=paramType()
+  params.epsilon=eps
+  params.Numbead=Nb
+  params.deltat=deltat
+  params.xstart=xStart
+
   # allocate a new bead instance
   bead = beadType()
   # initialize the struct to pass to the c routine
@@ -93,7 +111,7 @@ def GenPaths(loops, RNGseed, mlist, Alist):
     for j in range(5):
       bead[i].expVal[j]=0.0
   # call the C routine
-  CGenPaths(ctypes.c_int(loops), ctypes.c_int(RNGseed), bead)
+  CGenPaths(ctypes.c_int(loops), ctypes.c_int(RNGseed), bead, params )
   # return a numpy array with the averages computed
   return np.array([ [bead[i].m,
                      bead[i].A,
@@ -114,7 +132,7 @@ mlist=[ mZero(t) for t in np.linspace(0,10,Nb)]
 Alist=[ AZero(t) for t in np.linspace(0,10,Nb)]
 
 #generate the paths and store stats in klstats array
-klstats=GenPaths(10,13,mlist,Alist)
+klstats=GenPaths(NumPaths,13,mlist,Alist)
 
 # ==========================================================================
 # Plots!
