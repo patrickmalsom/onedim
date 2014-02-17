@@ -12,26 +12,38 @@ import ctypes
 # ==========================================================================
 # Constants of the simulation
 # ==========================================================================
+# passed C params
 Nb=10001
-Nu=Nb-1
-NumPaths=10001
 eps=0.15
 xStart=-0.969624
 deltat=0.001
-h=math.sqrt(2.0*deltat)
-T=Nu*deltat
-pref=math.sqrt(2.0*eps*deltat)
+
+# run specifics
+NumPaths=10001
+RNGseed=123
 
 #m0
 mPlus=0.969624
 gammam=2.0
 tm=5.
+# mH
+gammamH=2.0
+mHList=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 # A0
 APlus=7.52137
 AHalf=-7.0
 gammaA=10.0
 tA=5.0
+# AH
+params.gammaAH=10.0
+params.AHList=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+#defined from above
+Nu=Nb-1
+h=math.sqrt(2.0*deltat)
+T=Nu*deltat
+pref=math.sqrt(2.0*eps*deltat)
 
 # ==========================================================================
 # C struct setup
@@ -76,14 +88,44 @@ CGenPaths.restype = None
 # ==========================================================================
 # Function declarations
 # ==========================================================================
+
+# ========== mean (m) ==========
 def mZero(t):
 # base function for the mean: tanh
   return mPlus*math.tanh(gammam * (t-tm))
 
+def mHermite(t):
+  return math.exp(-gammamH*(t-tm)**2) * np.sum( [ mHList[j] * HH(t,j,tm,gammamH)  for j in range(6) ])
+
+def m(t):
+  return mZero(t) + mHermite(t)
+
+# ========== width (A) ==========
 def AZero(t):
-# base function for the width: gaussian well
   return APlus + AHalf*math.exp(-gammaA*(t-tA)**2)
 
+def AHermite(t):
+  return math.exp(-gammaAH*(t-tA)**2) * np.sum( [ AHList[j] * HH(t,j,tA,gammaAH)  for j in range(6) ])
+
+def A(t):
+  return AZero(t) + AHermite(t)
+
+# ========== hermite polys ==========
+def HH( t, n, tH, gamma):
+    # normPref is 1/Sqrt[2^n n! Sqrt[Pi]]
+    normPref = [0.751125544464942, 0.531125966013598, 0.265562983006799, 0.108415633823010, 0.0383307149314439, 0.0121212363525988]
+    HHPoly = [ 1. , 0.  , 0.  , 0.   , 0. , 0. , \
+               0. , 2.  , 0.  , 0.   , 0. , 0. , \
+               -2., 0.  , 4.  , 0.   , 0. , 0. , \
+               0. , -12., 0.  , 8.   , 0. , 0. , \
+               12., 0.  , -48., 0.   , 16., 0. , \
+               0. , 120., 0.  , -160., 0. , 32. ]
+    tempSum = 0.0
+    for k in range(6):
+        tempSum +=  math.sqrt(gamma) * (t-tH)**k * HHPoly[(6*n) + k]
+    return gamma**(0.25) * normPref[n] * tempSum
+
+# ========== calc paths ==========
 def GenPaths(loops, RNGseed, mlist, Alist):
 # call to the C library that will generate a path
 # inputs:
@@ -127,12 +169,24 @@ def GenPaths(loops, RNGseed, mlist, Alist):
 # ==========================================================================
 # Main routine
 # ==========================================================================
-# make the control function lists
-mlist=[ mZero(t) for t in np.linspace(0,10,Nb)]
-Alist=[ AZero(t) for t in np.linspace(0,10,Nb)]
+
+
+# generate m and A using the input parameters
+
+# generate the path stats using the C routine
+
+# calculate the gradients for m
+
+# generate the new parameters for m
+
+# calculate the gradients for A
+
+# generate the new parameters for A
+
+
 
 #generate the paths and store stats in klstats array
-klstats=GenPaths(NumPaths,13,mlist,Alist)
+klstats=GenPaths(NumPaths,13,[ mZero(t) for t in np.linspace(0,10,Nb)],[ AZero(t) for t in np.linspace(0,10,Nb)])
 
 # ==========================================================================
 # Plots!
