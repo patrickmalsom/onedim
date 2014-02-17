@@ -172,7 +172,7 @@ def GenPaths(loops, RNGseed, mlist, Alist):
 # ==========================================================================
 
 
-for steepLoops in range(300):
+for steepLoops in range(100):
   # generate m and A using the input parameters
   mlist=[m(t) for t in np.linspace(0,10,Nb)];
   Alist=[A(t) for t in np.linspace(0,10,Nb)];

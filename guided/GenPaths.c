@@ -122,13 +122,14 @@ void GenPaths(int loopIters, int RNGseed, averages* bead, parameters params)
         x1=x0;
       }
 
-      // accumulate expectation values and means
-      evXM= x1-bead[beadInc+1].m; // x - m
-      evUU0 = DeltaU(x1, bead, beadInc); // U - U0
-      evA = bead[beadInc+1].A; // A
+      // accumulate expectation values and means of the ZERO step
+      // note: the above calculates one extra x1 step
+      evXM= x0-bead[beadInc].m; // x - m
+      evUU0 = DeltaU(x0, bead, beadInc); // U - U0
+      evA = bead[beadInc].A; // A
 
-      bead[beadInc].xbar+=x1;
-      bead[beadInc].xxbar+=x1*x1;
+      bead[beadInc].xbar+=x0;
+      bead[beadInc].xxbar+=x0*x0;
       bead[beadInc].expVal[0] += evUU0;
       bead[beadInc].expVal[1] += (-(evXM)*evA);
       bead[beadInc].expVal[2] += (-(evXM)*evA)*evUU0;
