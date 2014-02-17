@@ -6,6 +6,7 @@
 import time
 import math
 import numpy as np
+import numpy.random as rng
 import matplotlib.pyplot as plt
 import ctypes
 
@@ -19,7 +20,7 @@ xStart=-0.969624
 deltat=0.001
 
 # run specifics
-NumPaths=1000
+NumPaths=10000
 RNGseed=123
 
 #m0
@@ -44,6 +45,8 @@ Nu=Nb-1
 h=math.sqrt(2.0*deltat)
 T=Nu*deltat
 pref=math.sqrt(2.0*eps*deltat)
+#RNG stuff
+rng.seed(RNGseed)
 
 # ==========================================================================
 # C struct setup
@@ -107,8 +110,7 @@ def HH( t, n, tH, gamma):
 # ========== mean (m) ==========
 def mZero(t):
 # base function for the mean: tanh
-  #return mPlus*math.tanh(gammam * (t-tm))
-  return -mPlus
+  return mPlus*math.tanh(gammam * (t-tm))
 
 def mHermite(t):
   return math.exp(-gammamH*(t-tm)**2) * np.sum( [ mHList[j] * HH(t,j,tm,gammamH)  for j in range(6) ])
@@ -172,13 +174,13 @@ def GenPaths(loops, RNGseed, mlist, Alist):
 # ==========================================================================
 
 
-for steepLoops in range(100):
+for steepLoops in range(10):
   # generate m and A using the input parameters
   mlist=[m(t) for t in np.linspace(0,10,Nb)];
   Alist=[A(t) for t in np.linspace(0,10,Nb)];
 
   # generate the path stats using the C routine
-  klstats=GenPaths(NumPaths,13,mlist,Alist)
+  klstats=GenPaths(NumPaths,int(rng.randint(1,99999999)),mlist,Alist)
   normklstats=1.0/NumPaths
   #klstats
   #  0: mean
@@ -192,11 +194,12 @@ for steepLoops in range(100):
   #4    8: 0.5*(x-m)^2*deltaU
 
   # calculate the gradients for m
+  print " --------------------------------------------------------"
   meanGrads=np.array( [ np.sum( ( (normklstats*klstats[:,4]*normklstats*klstats[:,5])-normklstats*klstats[:,6] ) * np.array([ math.exp(-gammamH *(t-tm)**2.0) * HH(t,n,tm,gammamH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)] )
   print list(meanGrads)
   # generate the new parameters for m
   print "new mean parameters:"
-  mHList=list(np.array( mHList ) + 0.00*np.array([0.1,0.1,0.1,0.1,0.1,0.1]) * meanGrads)
+  mHList=list(np.array( mHList ) - 0.001*np.array([0.1,0.1,0.1,0.1,0.1,0.1]) * meanGrads)
   print mHList
   print " "
 
@@ -205,7 +208,7 @@ for steepLoops in range(100):
   print list(AGrads)
   # generate the new parameters for A
   print "new A parameters:"
-  AHList = list(np.array( AHList ) - 0.01*np.array([1.0,1.0,1.0,1.0,1.0,1.0]) * AGrads)
+  AHList = list(np.array( AHList ) - 0.005*np.array([1.0,1.0,1.0,1.0,1.0,1.0]) * AGrads)
   print AHList
   print " "
 
