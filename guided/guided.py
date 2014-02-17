@@ -19,7 +19,7 @@ xStart=-0.969624
 deltat=0.001
 
 # run specifics
-NumPaths=10001
+NumPaths=1000
 RNGseed=123
 
 #m0
@@ -36,8 +36,8 @@ AHalf=-7.0
 gammaA=10.0
 tA=5.0
 # AH
-params.gammaAH=10.0
-params.AHList=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+gammaAH=10.0
+AHList=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 #defined from above
 Nu=Nb-1
@@ -89,10 +89,26 @@ CGenPaths.restype = None
 # Function declarations
 # ==========================================================================
 
+# ========== hermite polys ==========
+def HH( t, n, tH, gamma):
+    # normPref is 1/Sqrt[2^n n! Sqrt[Pi]]
+    normPref = [0.751125544464942, 0.531125966013598, 0.265562983006799, 0.108415633823010, 0.0383307149314439, 0.0121212363525988]
+    HHPoly = [ 1. , 0.  , 0.  , 0.   , 0. , 0. , \
+               0. , 2.  , 0.  , 0.   , 0. , 0. , \
+               -2., 0.  , 4.  , 0.   , 0. , 0. , \
+               0. , -12., 0.  , 8.   , 0. , 0. , \
+               12., 0.  , -48., 0.   , 16., 0. , \
+               0. , 120., 0.  , -160., 0. , 32. ]
+    tempSum = 0.0
+    for k in range(6):
+        tempSum +=  math.sqrt(gamma) * (t-tH)**k * HHPoly[(6*n) + k]
+    return gamma**(0.25) * normPref[n] * tempSum
+
 # ========== mean (m) ==========
 def mZero(t):
 # base function for the mean: tanh
-  return mPlus*math.tanh(gammam * (t-tm))
+  #return mPlus*math.tanh(gammam * (t-tm))
+  return -mPlus
 
 def mHermite(t):
   return math.exp(-gammamH*(t-tm)**2) * np.sum( [ mHList[j] * HH(t,j,tm,gammamH)  for j in range(6) ])
@@ -109,21 +125,6 @@ def AHermite(t):
 
 def A(t):
   return AZero(t) + AHermite(t)
-
-# ========== hermite polys ==========
-def HH( t, n, tH, gamma):
-    # normPref is 1/Sqrt[2^n n! Sqrt[Pi]]
-    normPref = [0.751125544464942, 0.531125966013598, 0.265562983006799, 0.108415633823010, 0.0383307149314439, 0.0121212363525988]
-    HHPoly = [ 1. , 0.  , 0.  , 0.   , 0. , 0. , \
-               0. , 2.  , 0.  , 0.   , 0. , 0. , \
-               -2., 0.  , 4.  , 0.   , 0. , 0. , \
-               0. , -12., 0.  , 8.   , 0. , 0. , \
-               12., 0.  , -48., 0.   , 16., 0. , \
-               0. , 120., 0.  , -160., 0. , 32. ]
-    tempSum = 0.0
-    for k in range(6):
-        tempSum +=  math.sqrt(gamma) * (t-tH)**k * HHPoly[(6*n) + k]
-    return gamma**(0.25) * normPref[n] * tempSum
 
 # ========== calc paths ==========
 def GenPaths(loops, RNGseed, mlist, Alist):
@@ -171,22 +172,45 @@ def GenPaths(loops, RNGseed, mlist, Alist):
 # ==========================================================================
 
 
-# generate m and A using the input parameters
+for steepLoops in range(300):
+  # generate m and A using the input parameters
+  mlist=[m(t) for t in np.linspace(0,10,Nb)];
+  Alist=[A(t) for t in np.linspace(0,10,Nb)];
 
-# generate the path stats using the C routine
+  # generate the path stats using the C routine
+  klstats=GenPaths(NumPaths,13,mlist,Alist)
+  normklstats=1.0/NumPaths
+  #klstats
+  #  0: mean
+  #  1: A
+  #  2: xbar
+  #  3: xxbar
+  #0    4: deltaU 
+  #1    5: -A*(x-m)
+  #2    6: -A*(x-m)*deltaU
+  #3    7: 0.5*(x-m)^2
+  #4    8: 0.5*(x-m)^2*deltaU
 
-# calculate the gradients for m
+  # calculate the gradients for m
+  meanGrads=np.array( [ np.sum( ( (normklstats*klstats[:,4]*normklstats*klstats[:,5])-normklstats*klstats[:,6] ) * np.array([ math.exp(-gammamH *(t-tm)**2.0) * HH(t,n,tm,gammamH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)] )
+  print list(meanGrads)
+  # generate the new parameters for m
+  print "new mean parameters:"
+  mHList=list(np.array( mHList ) + 0.00*np.array([0.1,0.1,0.1,0.1,0.1,0.1]) * meanGrads)
+  print mHList
+  print " "
 
-# generate the new parameters for m
+  # calculate the gradients for A
+  AGrads=np.array( [ np.sum( ( (normklstats*klstats[:,4]*normklstats*klstats[:,7])-normklstats*klstats[:,8] ) * np.array([ math.exp(-gammamH *(t-tA)**2.0) * HH(t,n,tm,gammaAH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)] )
+  print list(AGrads)
+  # generate the new parameters for A
+  print "new A parameters:"
+  AHList = list(np.array( AHList ) - 0.01*np.array([1.0,1.0,1.0,1.0,1.0,1.0]) * AGrads)
+  print AHList
+  print " "
 
-# calculate the gradients for A
-
-# generate the new parameters for A
 
 
-
-#generate the paths and store stats in klstats array
-klstats=GenPaths(NumPaths,13,[ mZero(t) for t in np.linspace(0,10,Nb)],[ AZero(t) for t in np.linspace(0,10,Nb)])
 
 # ==========================================================================
 # Plots!
@@ -196,7 +220,7 @@ f, axarr = plt.subplots(2,2)
 
 # A plot
 axarr[0,0].plot(timePlt, Alist)
-axarr[0,0].axis([0, 10, 0, 10])
+#axarr[0,0].axis([0, 10, 0, 10])
 
 # m plot
 axarr[0,1].plot(timePlt, mlist)
