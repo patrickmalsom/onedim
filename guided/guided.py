@@ -3,12 +3,18 @@
 # ==========================================================================
 # Import Libraries
 # ==========================================================================
+import matplotlib
+# Force matplotlib to not use any Xwindows backend.
+matplotlib.use('Agg')
+
 import time
 import math
+import ctypes
 import numpy as np
 import numpy.random as rng
 import matplotlib.pyplot as plt
-import ctypes
+from matplotlib.backends.backend_pdf import PdfPages
+
 
 # ==========================================================================
 # Constants of the simulation
@@ -20,22 +26,22 @@ xStart=-0.969624
 deltat=0.001
 
 # run specifics
-NumPaths=10000
+NumPaths=1000
 RNGseed=123
 
 #m0
 mPlus=0.969624
-gammam=2.0
-tm=5.
+gammam=5.0
+tm=5.0
 # mH
-gammamH=2.0
+gammamH=5.0
 mHList=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 # A0
 APlus=7.52137
 AHalf=-7.0
 gammaA=10.0
-tA=5.0
+tA=4.7
 # AH
 gammaAH=10.0
 AHList=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -174,7 +180,7 @@ def GenPaths(loops, RNGseed, mlist, Alist):
 # ==========================================================================
 
 
-for steepLoops in range(10):
+for steepLoops in range(10000):
   # generate m and A using the input parameters
   mlist=[m(t) for t in np.linspace(0,10,Nb)];
   Alist=[A(t) for t in np.linspace(0,10,Nb)];
@@ -193,46 +199,50 @@ for steepLoops in range(10):
   #3    7: 0.5*(x-m)^2
   #4    8: 0.5*(x-m)^2*deltaU
 
-  # calculate the gradients for m
-  print " --------------------------------------------------------"
-  meanGrads=np.array( [ np.sum( ( (normklstats*klstats[:,4]*normklstats*klstats[:,5])-normklstats*klstats[:,6] ) * np.array([ math.exp(-gammamH *(t-tm)**2.0) * HH(t,n,tm,gammamH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)] )
-  print list(meanGrads)
-  # generate the new parameters for m
-  print "new mean parameters:"
-  mHList=list(np.array( mHList ) - 0.001*np.array([0.1,0.1,0.1,0.1,0.1,0.1]) * meanGrads)
-  print mHList
-  print " "
+  if (steepLoops % 9) is 0:
+    # calculate the gradients for A
+    print " --------------------------------------------------------"
+    AGrads=np.array( [ np.sum( ( (normklstats*klstats[:,4]*normklstats*klstats[:,7])-normklstats*klstats[:,8] ) * np.array([ math.exp(-gammamH *(t-tA)**2.0) * HH(t,n,tm,gammaAH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)] )
+    print list(AGrads)
+    # generate the new parameters for A
+    print "new A parameters:"
+    AHList = list(np.array( AHList ) - 0.0005*np.array([0.1,1.0,1.0,1.0,1.0,1.0]) * AGrads)
+    print AHList
+    print " "
 
-  # calculate the gradients for A
-  AGrads=np.array( [ np.sum( ( (normklstats*klstats[:,4]*normklstats*klstats[:,7])-normklstats*klstats[:,8] ) * np.array([ math.exp(-gammamH *(t-tA)**2.0) * HH(t,n,tm,gammaAH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)] )
-  print list(AGrads)
-  # generate the new parameters for A
-  print "new A parameters:"
-  AHList = list(np.array( AHList ) - 0.005*np.array([1.0,1.0,1.0,1.0,1.0,1.0]) * AGrads)
-  print AHList
-  print " "
+  else:
+    # calculate the gradients for m
+    print " --------------------------------------------------------"
+    meanGrads=np.array( [ np.sum( ( (normklstats*klstats[:,4]*normklstats*klstats[:,5])-normklstats*klstats[:,6] ) * np.array([ math.exp(-gammamH *(t-tm)**2.0) * HH(t,n,tm,gammamH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)] )
+    print list(meanGrads)
+    # generate the new parameters for m
+    print "new mean parameters:"
+    mHList=list(np.array( mHList ) - 0.0005*np.array([0.1,0.1,0.1,0.1,0.1,0.1]) * meanGrads)
+    print mHList
+    print " "
 
 
 
+  # ==========================================================================
+  # Plots!
+  # ==========================================================================
+  timePlt=[t for t in np.linspace(0,T,Nb)]
+  f, axarr = plt.subplots(2,2)
 
-# ==========================================================================
-# Plots!
-# ==========================================================================
-timePlt=[t for t in np.linspace(0,T,Nb)]
-f, axarr = plt.subplots(2,2)
+  # A plot
+  axarr[0,0].plot(timePlt, Alist)
+  #axarr[0,0].axis([0, 10, 0, 10])
 
-# A plot
-axarr[0,0].plot(timePlt, Alist)
-#axarr[0,0].axis([0, 10, 0, 10])
+  # m plot
+  axarr[0,1].plot(timePlt, mlist)
+  axarr[0,1].plot(timePlt, normklstats*(klstats[:,2]))
 
-# m plot
-axarr[0,1].plot(timePlt, mlist)
-axarr[0,1].plot(timePlt, 1.0/NumPaths*(klstats[:,2]))
+  # dD/dA plot
+  axarr[1,0].plot(timePlt, ((normklstats*klstats[:,4]*normklstats*klstats[:,7]) - normklstats*klstats[:,8]) )
 
-# dD/dA plot
-axarr[1,0].plot(timePlt, 1.0/NumPaths*((klstats[:,4]*klstats[:,7]) - klstats[:,8]) )
+  # dD/dm plot
+  axarr[1,1].plot(timePlt, ((normklstats*klstats[:,4]*normklstats*klstats[:,5]) - normklstats*klstats[:,6]) )
 
-# dD/dm plot
-axarr[1,1].plot(timePlt, 1.0/NumPaths*((klstats[:,4]*klstats[:,5]) - klstats[:,6]) )
-
-plt.show()
+  plt.savefig("HealAstr"+str(100000+steepLoops)[1:]+".jpg", dpi = 400)
+  plt.close(f)
+#plt.show()
