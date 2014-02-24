@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/usr/bin/env python2.7
 
 # ==========================================================================
 # Import Libraries
@@ -180,7 +180,7 @@ def GenPaths(loops, RNGseed, mlist, Alist):
 # ==========================================================================
 
 
-for steepLoops in range(10000):
+for steepLoops in range(10):
   # generate m and A using the input parameters
   mlist=[m(t) for t in np.linspace(0,10,Nb)];
   Alist=[A(t) for t in np.linspace(0,10,Nb)];
@@ -243,6 +243,6 @@ for steepLoops in range(10000):
   # dD/dm plot
   axarr[1,1].plot(timePlt, ((normklstats*klstats[:,4]*normklstats*klstats[:,5]) - normklstats*klstats[:,6]) )
 
-  plt.savefig("movies/HealAstr"+str(100000+steepLoops)[1:]+".jpg", dpi = 400)
+  plt.savefig("movies/HealAstr"+str(100000+steepLoops)[1:]+".png", dpi = 100)
   plt.close(f)
 #plt.show()

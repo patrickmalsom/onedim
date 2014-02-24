@@ -15,7 +15,7 @@ This is just a shared library that is linked with guided.py
 #include <stdlib.h>
 #include <math.h>
 //OpenMP libraries
-#include <omp.h>
+//#include <omp.h>
 //GNU Scientific Libraries
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
