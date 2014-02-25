@@ -175,16 +175,32 @@ def GenPaths(loops, RNGseed, mlist, Alist):
                      bead[i].expVal[4] 
                     ] for i in range(Nb) ])
 
+# ========== approximate time lag ==========
+def calcLagTime(mean, xbar, maxTimeLag):
+  # input are the lists, m and xbar, and the maximum time shift necessary
+  # output is an ordered pair list of the lag time tau and the d_L
+  # $$ d_L=\int dt ( m(t) - x(t-\tau) )\^2 $$
+  maxTauIndex=int(Nb*maxTimeLag/T)
+  laglist=[ [0.0,0.0] for i in range(maxTauIndex)]
+  print int((T - maxTimeLag)/deltat )
+  for tau in range(maxTauIndex):
+    dL=0.0
+    for i in np.arange(maxTauIndex,Nb-maxTauIndex,1):
+      dL+= (mean[i] - xbar[i+tau] )**2.0
+    laglist[tau][0]=tau*deltat
+    laglist[tau][1]=dL
+  return laglist 
+
 # ==========================================================================
 # Main routine
 # ==========================================================================
 
+# generate m and A using the input parameters
+mlist=np.array([m(t) for t in np.linspace(0,10,Nb)]);
+Alist=np.array([A(t) for t in np.linspace(0,10,Nb)]);
 
-for steepLoops in range(10):
-  # generate m and A using the input parameters
-  mlist=[m(t) for t in np.linspace(0,10,Nb)];
-  Alist=[A(t) for t in np.linspace(0,10,Nb)];
-
+for steepLoops in range(1):
+  
   # generate the path stats using the C routine
   klstats=GenPaths(NumPaths,int(rng.randint(1,99999999)),mlist,Alist)
   normklstats=1.0/NumPaths
@@ -198,28 +214,49 @@ for steepLoops in range(10):
   #2    6: -A*(x-m)*deltaU
   #3    7: 0.5*(x-m)^2
   #4    8: 0.5*(x-m)^2*deltaU
+  templaglist=np.array(calcLagTime(mlist, normklstats*klstats[:,2], 0.4))
+  plt.plot(templaglist[:,0],templaglist[:,1])
+  plt.savefig("movies/HealAstrtest2.pdf", dpi = 100)
+  plt.close()
 
-  if (steepLoops % 9) is 0:
-    # calculate the gradients for A
-    print " --------------------------------------------------------"
-    AGrads=np.array( [ np.sum( ( (normklstats*klstats[:,4]*normklstats*klstats[:,7])-normklstats*klstats[:,8] ) * np.array([ math.exp(-gammamH *(t-tA)**2.0) * HH(t,n,tm,gammaAH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)] )
-    print list(AGrads)
-    # generate the new parameters for A
-    print "new A parameters:"
-    AHList = list(np.array( AHList ) - 0.0005*np.array([0.1,1.0,1.0,1.0,1.0,1.0]) * AGrads)
-    print AHList
-    print " "
+  dist=templaglist[:,1]
+  lagderiv=[ (dist[i]-dist[i+1])/deltat for i in range(len(dist)-1)]
 
-  else:
-    # calculate the gradients for m
-    print " --------------------------------------------------------"
-    meanGrads=np.array( [ np.sum( ( (normklstats*klstats[:,4]*normklstats*klstats[:,5])-normklstats*klstats[:,6] ) * np.array([ math.exp(-gammamH *(t-tm)**2.0) * HH(t,n,tm,gammamH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)] )
-    print list(meanGrads)
-    # generate the new parameters for m
-    print "new mean parameters:"
-    mHList=list(np.array( mHList ) - 0.0005*np.array([0.1,0.1,0.1,0.1,0.1,0.1]) * meanGrads)
-    print mHList
-    print " "
+  # find the elemet where the deriv changes sign
+  print(np.where(np.diff(np.sign(lagderiv)))[0])*deltat
+
+   
+
+  plt.plot(templaglist[:,0][:-1],lagderiv)
+  plt.savefig("movies/HealAstrtest3.pdf", dpi = 100)
+  plt.close()
+
+  polyFit= np.polyfit(np.array(templaglist[:,0]),np.array(templaglist[:,1]),2)
+  print(polyFit)
+  print(-2.0*polyFit[2]/polyFit[1])
+
+
+#  if (steepLoops % 9) is 0:
+#    # calculate the gradients for A
+#    print " --------------------------------------------------------"
+#    AGrads=np.array( [ np.sum( ( (normklstats*klstats[:,4]*normklstats*klstats[:,7])-normklstats*klstats[:,8] ) * np.array([ math.exp(-gammamH *(t-tA)**2.0) * HH(t,n,tm,gammaAH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)] )
+#    print list(AGrads)
+#    # generate the new parameters for A
+#    print "new A parameters:"
+#    AHList = list(np.array( AHList ) - 0.0005*np.array([0.1,1.0,1.0,1.0,1.0,1.0]) * AGrads)
+#    print AHList
+#    print " "
+
+#  else:
+#    # calculate the gradients for m
+#    print " --------------------------------------------------------"
+#    meanGrads=np.array( [ np.sum( ( (normklstats*klstats[:,4]*normklstats*klstats[:,5])-normklstats*klstats[:,6] ) * np.array([ math.exp(-gammamH *(t-tm)**2.0) * HH(t,n,tm,gammamH) for t in np.linspace(0,10,Nb) ]) ) for n in range(6)] )
+#    print list(meanGrads)
+#    # generate the new parameters for m
+#    print "new mean parameters:"
+#    mHList=list(np.array( mHList ) - 0.0005*np.array([0.1,0.1,0.1,0.1,0.1,0.1]) * meanGrads)
+#    print mHList
+#    print " "
 
 
 
@@ -236,6 +273,7 @@ for steepLoops in range(10):
   # m plot
   axarr[0,1].plot(timePlt, mlist)
   axarr[0,1].plot(timePlt, normklstats*(klstats[:,2]))
+  #axarr[0,1].axis([4.9, 5.3, 0.0, 0.1])
 
   # dD/dA plot
   axarr[1,0].plot(timePlt, ((normklstats*klstats[:,4]*normklstats*klstats[:,7]) - normklstats*klstats[:,8]) )
@@ -243,6 +281,6 @@ for steepLoops in range(10):
   # dD/dm plot
   axarr[1,1].plot(timePlt, ((normklstats*klstats[:,4]*normklstats*klstats[:,5]) - normklstats*klstats[:,6]) )
 
-  plt.savefig("movies/HealAstr"+str(100000+steepLoops)[1:]+".png", dpi = 100)
+  plt.savefig("movies/HealAstr"+str(100000+steepLoops)[1:]+".pdf", dpi = 100)
   plt.close(f)
 #plt.show()
