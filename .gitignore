@@ -2,7 +2,6 @@ wiki
 log
 
 *Cython.c
-*.wiki
 *.pyc
 *.mov
 *.jpg
