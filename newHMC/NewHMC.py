@@ -1,11 +1,9 @@
 #!/usr/bin/env python2.7
 
-print("====== ")
 import numpy as np
 import math
 from pylab import *
 
-print("====== 8")
 # Constants
 deltat=0.001
 invdt=1/deltat
@@ -17,7 +15,6 @@ noisePref=math.sqrt(4.0*eps*deltatau*invdt)
 inPath=loadtxt("SDEPath-fat-skinny.dat")
 Num=len(inPath)
 
-print("====== 20")
 # Function declarations
 def Pot(x):
     return 1.+ x*x*(-3.375+x * (1.6875 +x * (2.84766 +(-2.84766+0.711914 * x) * x)))
@@ -43,6 +40,10 @@ def g(xm1,x0,x1):
     g2nd=-0.5*invdt*(Force(x1)-2.0*Force(x0)+Force(xm1))
     g3rd=-0.5*invdt*ForcePrime(x0)*(x1-2.0*x0+xm1)
     return g1st+g2nd+g3rd
+
+def quadVar(poslist):
+    print "quad var: " + str(sum([(poslist[i]-poslist[i+1])**2 for i in range(len(poslist)-1)])/(2.*eps*deltat*(len(poslist)-1)))
+
 
 # Solves Mx=b where
 #  M is tridiagonal matrix
@@ -75,7 +76,6 @@ def GaussElim(mainDiag,lowerDiag,upperDiag,bVec):
     # return the result
     return bVec
 
-print("====== 75")
 
 # ## generate x0 vector on RHS
 matxlist=[0.0 for i in arange(1,len(inPath)-1,1)]
@@ -104,16 +104,14 @@ for i in arange(0,len(inPath)-2,1):
 rhs[0]+=r*inPath[0]
 rhs[-1]+=r*inPath[-1]
 
-print("====== 103")
 # perform the gaussian elimination to find the new path x^1
 md=[1+2*r for i in range(len(inPath)-2)]
 ld=[-r for i in range(len(inPath)-3)]
 ud=[-r for i in range(len(inPath)-3)]
 xnewPath=GaussElim(md,ld,ud,rhs)
 
-print("====== 110")
 # print the quadratic variation
-print "qv: "+ str(sum([(xnewPath[i]-xnewPath[i+1])**2 for i in range(len(xnewPath)-1)])/(2.*eps*deltat*(len(xnewPath)-1)))
+quadVar(xnewPath)
 
 # save the output path to file
 savetxt("NewHMC-out.dat",xnewPath)
