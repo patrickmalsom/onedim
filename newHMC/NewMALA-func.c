@@ -14,6 +14,32 @@ This is just a shared library that is linked with guided.py
 #include <stdlib.h>
 #include <math.h>
 
+//Defines
+#define NUML 99999
+//
+//Struct definitions
+typedef struct _parameters
+{
+  double deltat;
+  double invdt;
+  double eps;
+  double deltatau;
+  double noisePref;
+  double r;
+  int NumB;
+  int NumU;
+  int NumL;
+  double xPlus;
+  double xMinus;
+} parameters;
+
+//Struct definitions
+typedef struct _path
+{
+  double posOld;
+  double posCur;
+  double posNew;
+} averages;
 
 // ==================================================================================
 // Function prototypes
@@ -21,7 +47,7 @@ This is just a shared library that is linked with guided.py
 double Force(double x);
 double ForcePrime(double x);
 double Pot(double x);
-double g(double xm1, double x0, double x1, double invdt);
+double g(double xm1, double x0, double x1, parameters params, double invdt);
 
 // ==================================================================================
 double Pot(double x){
@@ -36,9 +62,9 @@ double ForcePrime(double x){
     return (6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x)));
 }
 
-double g(double xm1,double x0,double x1, double invdt){
+double g(double xm1,double x0,double x1, parameters params, double invdt){
     double g1st=ForcePrime(x0)*Force((x0));
-    double g2nd=-0.5*invdt*(Force((x1))-2.0*Force((x0))+Force((xm1)));
-    double g3rd=-0.5*invdt*ForcePrime(x0)*(x1-2.0*x0+xm1);
+    double g2nd=-0.5*params.invdt*(Force((x1))-2.0*Force((x0))+Force((xm1)));
+    double g3rd=-0.5*params.invdt*ForcePrime(x0)*(x1-2.0*x0+xm1);
     return g1st+g2nd+g3rd;
 }

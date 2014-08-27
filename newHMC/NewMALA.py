@@ -17,25 +17,68 @@ import cProfile, pstats, StringIO
 # ==========================================================================
 import ctypes
 from ctypes import c_double
-# import the c code library to generate paths
+from ctypes import c_int
+
+# define some c variable types
+DOUBLE=ctypes.c_double
+PDOUBLE=ctypes.POINTER(DOUBLE)
+INT=ctypes.c_int
+PINT=ctypes.POINTER(INT)
+# import the c code library
 clib=ctypes.CDLL("NewMALA-func.so")
-# name the path generation function for convienence
-# library functions
+# library functions (named for cinvienence)
 c_Pot=clib.Pot
 clib.Pot.restype = ctypes.c_double
-
 c_g=clib.g
 clib.g.restype = ctypes.c_double
 
+
 # ===============================================
 # constants/parameters
+# ===============================================
 deltat=0.005
 invdt=1/deltat
 eps=0.15
 deltatau=0.00001
 noisePref=math.sqrt(4.0*eps*deltatau*invdt)
 r=deltatau*0.5*invdt*invdt
-np.random.seed(101)
+NumB=100001
+NumU=10000
+NumL=99999 # this needs to be set in the C code as well
+xPlus=-2./3.
+xMinus=4./3.
+
+# ==========================================================================
+# C struct setup
+# ==========================================================================
+
+# save parameters to a struct to pass to the C routines
+class Parameters(ctypes.Structure):
+  _fields_ = [('deltat',DOUBLE),
+              ('invdt', DOUBLE),
+              ('eps', DOUBLE),
+              ('deltatau', DOUBLE),
+              ('noisePref', DOUBLE),
+              ('r', DOUBLE),
+              ('NumB', INT),
+              ('NumU', INT),
+              ('NumL', INT),
+              ('xPlus', DOUBLE),
+              ('xMinus', DOUBLE),
+             ]
+# define the array of averages that is to be passed to the C routine
+paramType=Parameters
+
+# make a class which is a clone of the C struct
+# this struct will be passed back with modified arrays
+class Averages(ctypes.Structure):
+  _fields_ = [('posOld', DOUBLE),
+              ('posCur', DOUBLE),
+              ('posNew', DOUBLE)
+             ]
+# define the array of averages that is to be passed to the C routine
+pathType=Averages*NumL
+
 
 # ===============================================
 # Defining potentials
@@ -60,7 +103,7 @@ def G(x0,x1):
 def g(xm1,x0,x1):
     g1st=ForcePrime(x0)*Force((x0))
     g2nd=-0.5*invdt*(Force((x1))-2.0*Force((x0))+Force((xm1)))
-    g3rd=-0.5*invdt*c_ForcePrime(x0)*(x1-2.0*x0+xm1)
+    g3rd=-0.5*invdt*ForcePrime(x0)*(x1-2.0*x0+xm1)
     return g1st+g2nd+g3rd
 
 # ===============================================
@@ -121,8 +164,32 @@ def checkBCs(path):
 # ===============================================
 # MAIN loop
 
+np.random.seed(101)
+
 inPath=np.loadtxt("SDEPath-fat-skinny.dat")
 
+# ===============================================
+# Initializing the structs
+#declare the params struct
+params=paramType()
+params.deltat=deltat
+params.invdt=invdt
+params.eps=eps
+params.deltatau=deltatau
+params.noisePref=noisePref
+params.r=r
+params.NumB=NumB
+params.NumU=NumU
+params.NumL=NumL
+params.xPlus=xPlus
+params.xMinus=xMinus
+
+
+path=pathType()
+for i in np.arange(1,len(inPath)-1,1):
+  path[i-1].posCur=inPath[i]
+
+#profiler start
 pr = cProfile.Profile()
 pr.enable()
 
@@ -140,7 +207,8 @@ for loops in range(5):
 
     # g vector
     for i in np.arange(1,len(inPath)-1,1):
-        glist[i-1]= deltatau * c_g( c_double(inPath[i-1]),c_double(inPath[i]),c_double(inPath[i+1]),c_double(invdt))
+        glist[i-1]= deltatau * c_g( c_double(inPath[i-1]),c_double(inPath[i]),c_double(inPath[i+1]),params,c_double(invdt))
+        #glist[i-1]= deltatau * g( inPath[i-1],inPath[i],inPath[i+1])
     
     # noise vector
     for i in np.arange(1,len(inPath)-1,1):
@@ -160,7 +228,7 @@ for loops in range(5):
     outPath=np.append(np.insert(sol,0,inPath[0]),inPath[-1])
     
     # perform unit tests
-#    unitTest(inPath,outPath)
+    unitTest(inPath,outPath)
 
     # save outpath to inpath and loop
     inPath=outPath
@@ -179,5 +247,3 @@ else:
     print "FAIL"
 
 np.savetxt("outPathC.dat",outPath)
-
-print 
