@@ -7,7 +7,25 @@
 import numpy as np
 import math
 import sys
+import time
 
+# set up the profiler
+import cProfile, pstats, StringIO
+
+# ==========================================================================
+# Ctypes
+# ==========================================================================
+import ctypes
+from ctypes import c_double
+# import the c code library to generate paths
+clib=ctypes.CDLL("NewMALA-func.so")
+# name the path generation function for convienence
+# library functions
+c_Pot=clib.Pot
+clib.Pot.restype = ctypes.c_double
+
+c_g=clib.g
+clib.g.restype = ctypes.c_double
 
 # ===============================================
 # constants/parameters
@@ -16,6 +34,7 @@ invdt=1/deltat
 eps=0.15
 deltatau=0.00001
 noisePref=math.sqrt(4.0*eps*deltatau*invdt)
+r=deltatau*0.5*invdt*invdt
 np.random.seed(101)
 
 # ===============================================
@@ -31,17 +50,17 @@ def ForcePrime(x):
 
 def H(x0,x1,p0):
     dxdt=(x1-x0)*invdt
-    return 0.25*(dxdt-Force(x0))*(dxdt-Force(x0)) + 0.25*(dxdt+Force(x1))*(dxdt+Force(x1)) + 0.5*p0*p0
+    return 0.25*(dxdt-Force((x0)))*(dxdt-Force((x0))) + 0.25*(dxdt+Force((x1)))*(dxdt+Force((x1))) + 0.5*p0*p0
 
 def G(x0,x1):
-    Fx0=Force(x0)
-    Fx1=Force(x1)
+    Fx0=Force((x0))
+    Fx1=Force((x1))
     return 0.25*Fx0*Fx0 + 0.25*Fx1*Fx1 + 0.5*(Fx1-Fx0)*(x1-x0)*invdt
 
 def g(xm1,x0,x1):
-    g1st=ForcePrime(x0)*Force(x0)
-    g2nd=-0.5*invdt*(Force(x1)-2.0*Force(x0)+Force(xm1))
-    g3rd=-0.5*invdt*ForcePrime(x0)*(x1-2.0*x0+xm1)
+    g1st=ForcePrime(x0)*Force((x0))
+    g2nd=-0.5*invdt*(Force((x1))-2.0*Force((x0))+Force((xm1)))
+    g3rd=-0.5*invdt*c_ForcePrime(x0)*(x1-2.0*x0+xm1)
     return g1st+g2nd+g3rd
 
 # ===============================================
@@ -53,8 +72,7 @@ def g(xm1,x0,x1):
 #   x is unknown vector: returned at the end
 def GaussElim(r,bVec):
 
-    tempVec=np.array(bVec)
-    Num=len(tempVec)
+    Num=len(bVec)
     
     al=[-r for i in range(Num-1)]
     am=[(1+2*r) for i in range(Num)]
@@ -66,21 +84,21 @@ def GaussElim(r,bVec):
         temp=-al[i]/am[i]
         #al[i]+=am[i]*temp
         am[i+1]+=au[i]*temp
-        tempVec[i+1]+=tempVec[i]*temp
+        bVec[i+1]+=bVec[i]*temp
 
     # Back substitution
     for i in range(Num-1):
         temp=-au[Num-i-2]/am[Num-i-1]
         #au[Num-i-2]+=am[Num-i-1]*temp
-        tempVec[Num-i-2]+=tempVec[Num-i-1]*temp
+        bVec[Num-i-2]+=bVec[Num-i-1]*temp
     
     # Divide by main diagonal
     for i in range(Num):
-        tempVec[i]=tempVec[i]/am[i]
+        bVec[i]=bVec[i]/am[i]
         #am[i]=am[i]/am[i]
     
     # Print the result
-    return tempVec
+    return bVec
 
 # ===============================================
 # Unit Tests
@@ -105,26 +123,30 @@ def checkBCs(path):
 
 inPath=np.loadtxt("SDEPath-fat-skinny.dat")
 
-for loops in range(100):
+pr = cProfile.Profile()
+pr.enable()
+
+matxlist=[0.0 for i in np.arange(1,len(inPath)-1,1)]
+glist=[0.0 for i in np.arange(1,len(inPath)-1,1)]
+noiselist=[0.0 for i in np.arange(1,len(inPath)-1,1)]
+rhs=[0.0 for i in np.arange(1,len(inPath)-1,1)]
+
+
+for loops in range(5):
 
     # x vector
-    matxlist=[0.0 for i in np.arange(1,len(inPath)-1,1)]
-    r=deltatau*0.5*invdt*invdt
     for i in np.arange(1,len(inPath)-1,1):
         matxlist[i-1]=r*inPath[i-1] + (1.-2.*r)*inPath[i] + r*inPath[i+1]
 
     # g vector
-    glist=[0.0 for i in np.arange(1,len(inPath)-1,1)]
     for i in np.arange(1,len(inPath)-1,1):
-        glist[i-1]= deltatau * g(inPath[i-1],inPath[i],inPath[i+1])
+        glist[i-1]= deltatau * c_g( c_double(inPath[i-1]),c_double(inPath[i]),c_double(inPath[i+1]),c_double(invdt))
     
     # noise vector
-    noiselist=[0.0 for i in np.arange(1,len(inPath)-1,1)]
     for i in np.arange(1,len(inPath)-1,1):
         noiselist[i-1]= noisePref*np.random.normal(0,1)
     
     # make full rhs vector
-    rhs=[0.0 for i in np.arange(1,len(inPath)-1,1)]
     for i in np.arange(0,len(inPath)-2,1):
         rhs[i]= matxlist[i]-glist[i]+noiselist[i]
     # adding the BC from the LHS matrix equation
@@ -133,11 +155,29 @@ for loops in range(100):
 
     sol=GaussElim(r,rhs)
 
+
     # add BC's back into solution
     outPath=np.append(np.insert(sol,0,inPath[0]),inPath[-1])
     
     # perform unit tests
-    unitTest(inPath,outPath)
+#    unitTest(inPath,outPath)
 
     # save outpath to inpath and loop
     inPath=outPath
+
+# print profile results
+pr.disable()
+s = StringIO.StringIO()
+sortby = 'cumulative'
+ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+ps.print_stats()
+print s.getvalue()
+
+if (np.loadtxt("outPathfive.dat") == outPath).all():
+    print "SUCCESS!"
+else:
+    print "FAIL"
+
+np.savetxt("outPathC.dat",outPath)
+
+print 
