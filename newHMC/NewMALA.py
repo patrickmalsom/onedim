@@ -9,9 +9,6 @@ import math
 import sys
 import time
 
-# set up the profiler
-import cProfile, pstats, StringIO
-
 # ==========================================================================
 # Ctypes
 # ==========================================================================
@@ -27,10 +24,17 @@ PINT=ctypes.POINTER(INT)
 # import the c code library
 clib=ctypes.CDLL("NewMALA-func.so")
 # library functions (named for cinvienence)
-c_Pot=clib.Pot
-clib.Pot.restype = ctypes.c_double
-c_g=clib.g
-clib.g.restype = ctypes.c_double
+#c_Pot=clib.Pot
+#clib.Pot.restype = ctypes.c_double
+
+c_calcForce=clib.calcForce
+c_calcForcePrime=clib.calcForcePrime
+c_calcdg=clib.calcdg
+
+c_calcSPDErhs=clib.calcSPDErhs
+c_calcStateSPDE=clib.calcStateSPDE
+
+c_GaussElim=clib.GaussElim
 
 
 # ===============================================
@@ -72,12 +76,15 @@ paramType=Parameters
 # make a class which is a clone of the C struct
 # this struct will be passed back with modified arrays
 class Averages(ctypes.Structure):
-  _fields_ = [('posOld', DOUBLE),
-              ('posCur', DOUBLE),
-              ('posNew', DOUBLE)
+  _fields_ = [('pos', DOUBLE),
+              ('randlist', DOUBLE),
+              ('Force', DOUBLE),
+              ('ForcePrime', DOUBLE),
+              ('dg', DOUBLE),
+              ('rhs', DOUBLE)
              ]
 # define the array of averages that is to be passed to the C routine
-pathType=Averages*NumL
+pathType=Averages*NumB
 
 
 # ===============================================
@@ -118,7 +125,7 @@ def GaussElim(r,bVec):
     Num=len(bVec)
     
     al=[-r for i in range(Num-1)]
-    am=[(1+2*r) for i in range(Num)]
+    am=[(1.0+2.0*r) for i in range(Num)]
     au=[-r for i in range(Num-1)]
 
 
@@ -135,10 +142,12 @@ def GaussElim(r,bVec):
         #au[Num-i-2]+=am[Num-i-1]*temp
         bVec[Num-i-2]+=bVec[Num-i-1]*temp
     
+
     # Divide by main diagonal
     for i in range(Num):
         bVec[i]=bVec[i]/am[i]
         #am[i]=am[i]/am[i]
+
     
     # Print the result
     return bVec
@@ -181,65 +190,39 @@ params.r=r
 params.NumB=NumB
 params.NumU=NumU
 params.NumL=NumL
-params.xPlus=xPlus
-params.xMinus=xMinus
+
+pathOld=pathType()
+pathCur=pathType()
+pathNew=pathType()
 
 
-path=pathType()
-for i in np.arange(1,len(inPath)-1,1):
-  path[i-1].posCur=inPath[i]
-
-#profiler start
-pr = cProfile.Profile()
-pr.enable()
-
-matxlist=[0.0 for i in np.arange(1,len(inPath)-1,1)]
-glist=[0.0 for i in np.arange(1,len(inPath)-1,1)]
-noiselist=[0.0 for i in np.arange(1,len(inPath)-1,1)]
-rhs=[0.0 for i in np.arange(1,len(inPath)-1,1)]
+#matxlist=np.array([0.0 for i in np.arange(1,len(inPath)-1,1)])
+#glist=np.array([0.0 for i in np.arange(1,len(inPath)-1,1)])
+#noiselist=np.array([0.0 for i in np.arange(1,len(inPath)-1,1)])
+#rhs=np.array([0.0 for i in np.arange(1,len(inPath)-1,1)])
+outPath=np.array([0.0 for i in np.arange(0,len(inPath),1)])
 
 
 for loops in range(5):
 
-    # x vector
+    for i in np.arange(0,len(inPath),1):
+        pathOld[i].pos=inPath[i]
+#    # noise vector
     for i in np.arange(1,len(inPath)-1,1):
-        matxlist[i-1]=r*inPath[i-1] + (1.-2.*r)*inPath[i] + r*inPath[i+1]
+        pathOld[i].randlist=np.random.normal(0,1)
 
-    # g vector
-    for i in np.arange(1,len(inPath)-1,1):
-        glist[i-1]= deltatau * c_g( c_double(inPath[i-1]),c_double(inPath[i]),c_double(inPath[i+1]),params,c_double(invdt))
-        #glist[i-1]= deltatau * g( inPath[i-1],inPath[i],inPath[i+1])
-    
-    # noise vector
-    for i in np.arange(1,len(inPath)-1,1):
-        noiselist[i-1]= noisePref*np.random.normal(0,1)
-    
-    # make full rhs vector
-    for i in np.arange(0,len(inPath)-2,1):
-        rhs[i]= matxlist[i]-glist[i]+noiselist[i]
-    # adding the BC from the LHS matrix equation
-    rhs[0]+=r*inPath[0]
-    rhs[-1]+=r*inPath[-1]
+    c_calcStateSPDE(pathOld,params)
 
-    sol=GaussElim(r,rhs)
+    c_GaussElim(pathOld,pathCur,params)
 
-
-    # add BC's back into solution
-    outPath=np.append(np.insert(sol,0,inPath[0]),inPath[-1])
+    for i in np.arange(0,len(inPath),1):
+        outPath[i]=pathCur[i].pos
     
     # perform unit tests
-    unitTest(inPath,outPath)
+#    unitTest(inPath,outPath)
 
     # save outpath to inpath and loop
     inPath=outPath
-
-# print profile results
-pr.disable()
-s = StringIO.StringIO()
-sortby = 'cumulative'
-ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-ps.print_stats()
-print s.getvalue()
 
 if (np.loadtxt("outPathfive.dat") == outPath).all():
     print "SUCCESS!"

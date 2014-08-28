@@ -14,9 +14,6 @@ This is just a shared library that is linked with guided.py
 #include <stdlib.h>
 #include <math.h>
 
-//Defines
-#define NUML 99999
-//
 //Struct definitions
 typedef struct _parameters
 {
@@ -36,20 +33,45 @@ typedef struct _parameters
 //Struct definitions
 typedef struct _path
 {
-  double posOld;
-  double posCur;
-  double posNew;
+  double pos;
+  double randlist;
+  double Force;
+  double ForcePrime;
+  double dg;
+  double rhs;
 } averages;
 
 // ==================================================================================
 // Function prototypes
 // ==================================================================================
-double Force(double x);
-double ForcePrime(double x);
-double Pot(double x);
-double g(double xm1, double x0, double x1, parameters params, double invdt);
+//double Force(double x);
+//double ForcePrime(double x);
+//double Pot(double x);
+
+void calcForce(averages* path, parameters params);
+void calcForcePrime(averages* path, parameters params);
+void calcdg(averages* path, parameters params);
+
+void calcSPDErhs(averages* path, parameters params);
+
+void calcStateSPDE(averages* path, parameters params);
+
+void GaussElim(averages* path0, averages* path1, parameters params);
+
+/*
+Notes:
+
+Note 1: For calculations that depend on the x_{i-1} or x_{i+1} bead, it is important to 
+remember that the path stored in the path struct is length NumL. This means that the boundary
+conditions are not included when the path is passed from the python code. For this reason
+there is a calculation that must be made outside of the for loop that handles the first and 
+last calculation
+
+
+*/
 
 // ==================================================================================
+/*
 double Pot(double x){
     return( 1.+ x*x*(-3.375+x * (1.6875 +x * (2.84766 +(-2.84766+0.711914 * x) * x))));
 }
@@ -62,9 +84,151 @@ double ForcePrime(double x){
     return (6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x)));
 }
 
-double g(double xm1,double x0,double x1, parameters params, double invdt){
-    double g1st=ForcePrime(x0)*Force((x0));
-    double g2nd=-0.5*params.invdt*(Force((x1))-2.0*Force((x0))+Force((xm1)));
-    double g3rd=-0.5*params.invdt*ForcePrime(x0)*(x1-2.0*x0+xm1);
-    return g1st+g2nd+g3rd;
+*/
+
+
+// ===============================================
+void calcForce(averages* path, parameters params){
+// fill out the Force variables for the struce
+// initial params must have the positions filled
+  double x;
+  int i;
+
+  for(i=0;i<params.NumB;i++){
+    x = path[i].pos;
+    path[i].Force= (x * (6.75 + x * (-5.0625 + x * (-11.3906 + (14.2383 - 4.27148 * x) * x))));
+  }
+}
+
+// ===============================================
+void calcForcePrime(averages* path, parameters params){
+// fill out the ForcePrime variables for the struce
+// initial params must have the positions filled
+  double x;
+  int i;
+
+  for(i=0;i<params.NumB;i++){
+    x = path[i].pos;
+    path[i].ForcePrime= (6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x)));
+  }
+}
+
+
+// ===============================================
+void calcdg(averages* path, parameters params){
+// calculate dG/dx
+    int i;
+    double g1st, g2nd, g3rd;
+    for(i=1;i<params.NumB-1;i++){
+      g1st=path[i].ForcePrime*path[i].Force;
+      g2nd=-0.5*params.invdt*(path[i+1].Force-2.0*path[i].Force+path[i-1].Force);
+      g3rd=-0.5*params.invdt*path[i].ForcePrime*(path[i+1].pos-2.0*path[i].pos+path[i-1].pos);
+      path[i].dg=params.deltatau*(g1st+g2nd+g3rd);
+    }
+    //printf("dg=%+0.15e\n",params.noisePref*path[1].randlist);
+}
+
+// ===============================================
+void calcSPDErhs(averages* path, parameters params){
+  // x vector
+  // note that the i_th position is (i+1)
+  int i;
+  double temp1, temp2, temp3;
+
+  for(i=1;i<params.NumB-1;i++){
+    temp1 = params.r*path[i-1].pos + (1.-2.*params.r)*path[i].pos + params.r*path[i+1].pos;
+    temp2 = path[i].dg;
+    temp3 = params.noisePref*path[i].randlist;
+    path[i].rhs=temp1-temp2+temp3;
+  }
+  path[1].rhs+=params.r*path[0].pos;
+  path[params.NumB-2].rhs+=params.r*path[params.NumB-1].pos;
+
+}
+
+// ===============================================
+void calcStateSPDE(averages* path, parameters params){
+// Function to calculate all of the structure parameters 
+// using the pos variables and the randlist
+
+  calcForce(path, params);
+  calcForcePrime(path, params);
+  calcdg(path, params);
+  calcSPDErhs(path, params);
+}
+
+/*
+// ===============================================
+void calcStateMD(averages* path, parameters params){
+// Function to calculate all of the structure parameters 
+// using the pos variables
+
+  calcForce(path,params);
+  calcForcePrime(path,params);
+  calcdg(path,params);
+  calcrhsMD(path,params);
+}
+
+// ===============================================
+void calcMDrhs(averages* path0, averages* path1, averages* path2, parameters params){
+}
+
+// ===============================================
+double calcEnergyChange(averages* path0, averages* path1, parameters params){
+}
+*/
+
+
+// ===============================================
+// Gaussian elimination for computing L.x=b where
+//   L is tridiagonal matrix
+//     mainDiag: 1+2r
+//     upper(lower)Diag: -r
+//
+//   input: the filled path0 state 
+//   output: new path1.pos  
+void GaussElim(averages* path0, averages* path1, parameters params){
+
+    int NumL = params.NumL;
+    int i;
+    double temp;
+    
+    // declare the L matrix arrays
+    double al[NumL-1];
+    double am[NumL];
+    double au[NumL-1];
+    //initialize the tridiagonal arrays
+    for(i=0;i<NumL-1;i++){ 
+        al[i]=-params.r;
+        am[i]=(1.0+2.0*params.r);
+        au[i]=-params.r;
+    }
+    am[NumL-1]=(1.0+2.0*params.r);
+
+
+    // Gaussian Elimination
+    for(i=0;i<NumL-1;i++){
+        temp=-al[i]/am[i];
+        am[i+1]+=au[i]*temp;
+        path0[i+2].rhs+=path0[i+1].rhs*temp;
+    }
+
+    // Back substitution
+    for(i=0;i<NumL-1;i++){
+        temp=-au[NumL-i-2]/am[NumL-i-1];
+        path0[NumL-i-1].rhs+=path0[NumL-i].rhs*temp;
+    }
+    
+    // Divide by main diagonal
+    for(i=0;i<NumL;i++){
+        path0[i+1].rhs=path0[i+1].rhs/am[i];
+    }
+
+
+    // set the boundary conditions on the new path
+    path1[0].pos=path0[0].pos;
+    path1[params.NumB-1].pos=path0[params.NumB-1].pos;
+    for(i=1;i<params.NumB-1;i++){
+        path1[i].pos=path0[i].rhs;
+    }
 }
