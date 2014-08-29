@@ -4,14 +4,15 @@
 
 # ===============================================
 # Import libraries
+# ===============================================
 import numpy as np
 import math
 import sys
 import time
 
-# ==========================================================================
+# ===============================================
 # Ctypes
-# ==========================================================================
+# ===============================================
 import ctypes
 from ctypes import c_double
 from ctypes import c_int
@@ -27,8 +28,8 @@ clib=ctypes.CDLL("NewMALA-func.so")
 #c_Pot=clib.Pot
 #clib.Pot.restype = ctypes.c_double
 
-c_calcForce=clib.calcForce
-c_calcForcePrime=clib.calcForcePrime
+c_calcForce=clib.calcForces
+c_calcForcePrime=clib.calcForcePrimes
 c_calcdg=clib.calcdg
 
 c_calcSPDErhs=clib.calcSPDErhs
@@ -38,7 +39,9 @@ c_GaussElim=clib.GaussElim
 
 
 # ===============================================
+# ===============================================
 # constants/parameters
+# ===============================================
 # ===============================================
 deltat=0.005
 invdt=1/deltat
@@ -52,9 +55,9 @@ NumL=99999 # this needs to be set in the C code as well
 xPlus=-2./3.
 xMinus=4./3.
 
-# ==========================================================================
+# ===============================================
 # C struct setup
-# ==========================================================================
+# ===============================================
 
 # save parameters to a struct to pass to the C routines
 class Parameters(ctypes.Structure):
@@ -229,4 +232,4 @@ if (np.loadtxt("outPathfive.dat") == outPath).all():
 else:
     print "FAIL"
 
-np.savetxt("outPathC.dat",outPath)
+#np.savetxt("outPathC.dat",outPath)
