@@ -8,52 +8,58 @@
 import numpy as np
 import math
 import sys
-import time
 
 # ===============================================
 # Ctypes
 # ===============================================
 import ctypes
-from ctypes import c_double
-from ctypes import c_int
 
 # define some c variable types
 DOUBLE=ctypes.c_double
 PDOUBLE=ctypes.POINTER(DOUBLE)
 INT=ctypes.c_int
 PINT=ctypes.POINTER(INT)
+
 # import the c code library
 clib=ctypes.CDLL("NewMALA-func.so")
-# library functions (named for cinvienence)
+
+# library functions
 #c_Pot=clib.Pot
-#clib.Pot.restype = ctypes.c_double
+#clib.Pot.restype = DOUBLE
 
 c_calcForce=clib.calcForces
+# fill out the Force variables for the struce
+
 c_calcForcePrime=clib.calcForcePrimes
+# fill out the ForcePrime variables for the struce
+
 c_calcdg=clib.calcdg
+# calculate dG/dx for the structure
 
 c_calcSPDErhs=clib.calcSPDErhs
+# calculate the right hand side vector for the SPDE
+
 c_calcStateSPDE=clib.calcStateSPDE
+# Function to calculate all of the structure parameters for the SPDE step
 
 c_GaussElim=clib.GaussElim
+# Gaussian elimination for computing L.x=b where L is the second deriv matrix
 
 
-# ===============================================
 # ===============================================
 # constants/parameters
 # ===============================================
-# ===============================================
-deltat=0.005
-invdt=1/deltat
-eps=0.15
-deltatau=0.00001
-noisePref=math.sqrt(4.0*eps*deltatau*invdt)
-r=deltatau*0.5*invdt*invdt
-NumB=100001
-NumU=10000
-NumL=99999 # this needs to be set in the C code as well
-xPlus=-2./3.
-xMinus=4./3.
+deltat=0.005 # time step along the path
+invdt=1/deltat # reciprocal of time step
+eps=0.15 # configurational temperature
+deltatau=0.00001 # time step between paths
+noisePref=math.sqrt(4.0*eps*deltatau*invdt) # scaling for the random noise term
+r=deltatau*0.5*invdt*invdt # constant matrix element in L (I+-rL)
+NumB=100001 # number of 'beads' (total positions in path, path length)
+NumU=10000 # number of time steps
+NumL=99999 # size of matrix (I+-rL)
+xStart=-2./3. # starting boundary condition
+xEnd=4./3. # ending boundary condition
 
 # ===============================================
 # C struct setup
@@ -70,14 +76,14 @@ class Parameters(ctypes.Structure):
               ('NumB', INT),
               ('NumU', INT),
               ('NumL', INT),
-              ('xPlus', DOUBLE),
-              ('xMinus', DOUBLE),
+              ('xStart', DOUBLE),
+              ('xEnd', DOUBLE),
              ]
 # define the array of averages that is to be passed to the C routine
 paramType=Parameters
 
 # make a class which is a clone of the C struct
-# this struct will be passed back with modified arrays
+# this structs pointer will be passed between C and Python code
 class Averages(ctypes.Structure):
   _fields_ = [('pos', DOUBLE),
               ('randlist', DOUBLE),
@@ -91,7 +97,8 @@ pathType=Averages*NumB
 
 
 # ===============================================
-# Defining potentials
+# Function declarations
+# ===============================================
 def Pot(x):
     return 1.+ x*x*(-3.375+x * (1.6875 +x * (2.84766 +(-2.84766+0.711914 * x) * x)))
 
@@ -101,29 +108,19 @@ def Force(x):
 def ForcePrime(x):
     return 6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x))
 
-def H(x0,x1,p0):
-    dxdt=(x1-x0)*invdt
-    return 0.25*(dxdt-Force((x0)))*(dxdt-Force((x0))) + 0.25*(dxdt+Force((x1)))*(dxdt+Force((x1))) + 0.5*p0*p0
-
-def G(x0,x1):
-    Fx0=Force((x0))
-    Fx1=Force((x1))
-    return 0.25*Fx0*Fx0 + 0.25*Fx1*Fx1 + 0.5*(Fx1-Fx0)*(x1-x0)*invdt
-
 def g(xm1,x0,x1):
     g1st=ForcePrime(x0)*Force((x0))
     g2nd=-0.5*invdt*(Force((x1))-2.0*Force((x0))+Force((xm1)))
     g3rd=-0.5*invdt*ForcePrime(x0)*(x1-2.0*x0+xm1)
     return g1st+g2nd+g3rd
 
-# ===============================================
-# Gaussian elimination for computing L.x=b where
-#   L is tridiagonal matrix
-#     mainDiag: 1+2r
-#     upper(lower)Diag: -r
-#   b is known vector: bVec is input
-#   x is unknown vector: returned at the end
 def GaussElim(r,bVec):
+    # Gaussian elimination for computing L.x=b where
+    #   L is tridiagonal matrix
+    #     mainDiag: 1+2r
+    #     upper(lower)Diag: -r
+    #   b is known vector: bVec is input
+    #   x is unknown vector: returned at the end
 
     Num=len(bVec)
     
@@ -191,7 +188,7 @@ params.deltatau=deltatau
 params.noisePref=noisePref
 params.r=r
 params.NumB=NumB
-params.NumU=NumU
+params.NumU=NumU # not used
 params.NumL=NumL
 
 pathOld=pathType()

@@ -66,17 +66,30 @@ double Force(double x);
 double ForcePrime(double x);
 // F'(x)=dF/dx: returns the force at a position
 
+void rotatePaths(averages **a, averages **b, averages **c);
+// rotate the structure pointers (new->current, current->old, old->new)
+
 void calcForces(averages* path, parameters params);
+// fill out the Force variables for the struce
+
 void calcForcePrime(averages* path, parameters params);
+// fill out the ForcePrime variables for the struce
+
 void calcdg(averages* path, parameters params);
+// calculate dG/dx for the structure
+
 void calcSPDErhs(averages* path, parameters params);
+// calculate the right hand side vector for the SPDE
+
 void calcStateSPDE(averages* path, parameters params);
+// Function to calculate all of the structure parameters for the SPDE step
 
 void GaussElim(averages* path0, averages* path1, parameters params);
 // Gaussian elimination for computing L.x=b where L is the second deriv matrix
 //   L matrix: mainDiag: (1+2r) ; upper(lower)Diag: (-r)
 //   input: the filled path0 state (
 //   output: new path1.pos  
+
 
 
 // ==================================================================================
@@ -99,9 +112,24 @@ double ForcePrime(double x){
 }
 
 // ==================================================================================
+void rotatePaths(averages **a, averages **b, averages **c){
+  // rotates the pointers for the path structs
+  //averagesOld     ->  averagesNew (a->c)
+  //averagesCurrent ->  averagesOld (b->a)
+  //averagesNew     ->  averagesCurrent (c->b)
+  //the new averagesNew is then ready to be overwritten with new positions
+  averages *temp;
+
+  temp=*c;
+  *c=*a;
+  *a=*b;
+  *b=temp;
+}
+
+// ==================================================================================
 void calcForces(averages* path, parameters params){
-// fill out the Force variables for the struce
-// initial params must have the positions filled
+  // fill out the Force variables for the struce
+  // initial params must have the positions filled
   double x;
   int i;
 
@@ -113,8 +141,8 @@ void calcForces(averages* path, parameters params){
 
 // ==================================================================================
 void calcForcePrimes(averages* path, parameters params){
-// fill out the ForcePrime variables for the struce
-// initial params must have the positions filled
+  // fill out the ForcePrime variables for the structure
+  // initial params must have the positions filled
   double x;
   int i;
 
@@ -127,22 +155,27 @@ void calcForcePrimes(averages* path, parameters params){
 
 // ==================================================================================
 void calcdg(averages* path, parameters params){
-// calculate dG/dx
+  // calculate dG/dx for the structure
+  // intial positions/force/forceprime must be filled
     int i;
     double g1st, g2nd, g3rd;
+
     for(i=1;i<params.NumB-1;i++){
       g1st=path[i].ForcePrime*path[i].Force;
       g2nd=-0.5*params.invdt*(path[i+1].Force-2.0*path[i].Force+path[i-1].Force);
       g3rd=-0.5*params.invdt*path[i].ForcePrime*(path[i+1].pos-2.0*path[i].pos+path[i-1].pos);
       path[i].dg=params.deltatau*(g1st+g2nd+g3rd);
     }
-    //printf("dg=%+0.15e\n",params.noisePref*path[1].randlist);
 }
 
 // ==================================================================================
 void calcSPDErhs(averages* path, parameters params){
-  // x vector
+  // calculate the right hand side vector for the SPDE
+  // including the boundary conditions from the LHS matrix multiplication
   // note that the i_th position is (i+1)
+  // temp1: (I+rL)xOld
+  // temp2: dg term
+  // temp3: noise term
   int i;
   double temp1, temp2, temp3;
 
@@ -159,8 +192,8 @@ void calcSPDErhs(averages* path, parameters params){
 
 // ==================================================================================
 void calcStateSPDE(averages* path, parameters params){
-// Function to calculate all of the structure parameters 
-// using the pos variables and the randlist
+  // Function to calculate all of the structure parameters for the SPDE step
+  // using the pos variables and the randlist
 
   calcForces(path, params);
   calcForcePrimes(path, params);
