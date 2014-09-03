@@ -66,9 +66,6 @@ double Force(double x);
 double ForcePrime(double x);
 // F'(x)=dF/dx: returns the force at a position
 
-void rotatePaths(averages **a, averages **b, averages **c);
-// rotate the structure pointers (new->current, current->old, old->new)
-
 void calcForces(averages* path, parameters params);
 // fill out the Force variables for the struce
 
@@ -111,20 +108,6 @@ double ForcePrime(double x){
   return (6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x)));
 }
 
-// ==================================================================================
-void rotatePaths(averages **a, averages **b, averages **c){
-  // rotates the pointers for the path structs
-  //averagesOld     ->  averagesNew (a->c)
-  //averagesCurrent ->  averagesOld (b->a)
-  //averagesNew     ->  averagesCurrent (c->b)
-  //the new averagesNew is then ready to be overwritten with new positions
-  averages *temp;
-
-  temp=*c;
-  *c=*a;
-  *a=*b;
-  *b=temp;
-}
 
 // ==================================================================================
 void calcForces(averages* path, parameters params){

@@ -9,6 +9,9 @@ import numpy as np
 import math
 import sys
 
+# python profiler
+import cProfile, pstats, StringIO
+
 # ===============================================
 # Ctypes
 # ===============================================
@@ -152,6 +155,17 @@ def GaussElim(r,bVec):
     # Print the result
     return bVec
 
+
+def rotatePaths():
+    #
+    #
+    #
+    # rotate the structure pointers (new->current, current->old, old->new)
+    global pathOld,pathCur,pathNew
+    pathOld=pathCur
+    pathCur=pathNew
+    pathNew=pathOld
+
 # ===============================================
 # Unit Tests
 def unitTest(inpath,outpath):
@@ -194,20 +208,23 @@ params.NumL=NumL
 pathOld=pathType()
 pathCur=pathType()
 pathNew=pathType()
+pathTemp=pathType()
 
 
-#matxlist=np.array([0.0 for i in np.arange(1,len(inPath)-1,1)])
-#glist=np.array([0.0 for i in np.arange(1,len(inPath)-1,1)])
-#noiselist=np.array([0.0 for i in np.arange(1,len(inPath)-1,1)])
-#rhs=np.array([0.0 for i in np.arange(1,len(inPath)-1,1)])
+# testing temporary array
 outPath=np.array([0.0 for i in np.arange(0,len(inPath),1)])
+
+# start the profiler
+pr = cProfile.Profile()
+pr.enable()
+
+for i in np.arange(0,len(inPath),1):
+    pathOld[i].pos=inPath[i]
 
 
 for loops in range(5):
 
-    for i in np.arange(0,len(inPath),1):
-        pathOld[i].pos=inPath[i]
-#    # noise vector
+    # noise vector
     for i in np.arange(1,len(inPath)-1,1):
         pathOld[i].randlist=np.random.normal(0,1)
 
@@ -215,14 +232,22 @@ for loops in range(5):
 
     c_GaussElim(pathOld,pathCur,params)
 
-    for i in np.arange(0,len(inPath),1):
-        outPath[i]=pathCur[i].pos
-    
-    # perform unit tests
-#    unitTest(inPath,outPath)
+    rotatePaths()
 
-    # save outpath to inpath and loop
-    inPath=outPath
+
+
+
+# profiler stop
+pr.disable()
+s = StringIO.StringIO()
+sortby = 'cumulative'
+ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+ps.print_stats()
+print s.getvalue()
+
+# test to see if the path is still correct
+for i in np.arange(0,len(inPath),1):
+    outPath[i]=pathOld[i].pos
 
 if (np.loadtxt("outPathfive.dat") == outPath).all():
     print "SUCCESS!"
