@@ -157,14 +157,12 @@ def GaussElim(r,bVec):
 
 
 def rotatePaths():
-    #
-    #
-    #
-    # rotate the structure pointers (new->current, current->old, old->new)
+    # rotate the structure pointers (old1->current0, current1->new0, new1->old0 )
     global pathOld,pathCur,pathNew
+    temp=pathOld
     pathOld=pathCur
     pathCur=pathNew
-    pathNew=pathOld
+    pathNew=temp
 
 # ===============================================
 # Unit Tests
@@ -208,7 +206,6 @@ params.NumL=NumL
 pathOld=pathType()
 pathCur=pathType()
 pathNew=pathType()
-pathTemp=pathType()
 
 
 # testing temporary array
@@ -233,8 +230,6 @@ for loops in range(5):
     c_GaussElim(pathOld,pathCur,params)
 
     rotatePaths()
-
-
 
 
 # profiler stop
