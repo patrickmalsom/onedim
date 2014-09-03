@@ -48,6 +48,7 @@ c_calcStateSPDE=clib.calcStateSPDE
 c_GaussElim=clib.GaussElim
 # Gaussian elimination for computing L.x=b where L is the second deriv matrix
 
+c_quadVar=clib.quadVar
 
 # ===============================================
 # constants/parameters
@@ -166,12 +167,12 @@ def rotatePaths():
 
 # ===============================================
 # Unit Tests
-def unitTest(inpath,outpath):
-    # print the quadratic variation for every main loop
-    quadVar(outpath)
+def unitTest(path):
+    # print the quadratic variation
+    c_quadVar(path,params)
     # verify that the boundary conditions have not changed
-    if inpath[0] != outpath[0] and inpath[-1] != outpath[-1]:
-        sys.exit("Boundary Conditions Changed! Aborting...")
+    #if inpath[0] != outpath[0] and inpath[-1] != outpath[-1]:
+    #    sys.exit("Boundary Conditions Changed! Aborting...")
     
 def quadVar(poslist):
     quadVarSum=sum([(poslist[i]-poslist[i+1])**2 for i in range(len(poslist)-1)])
@@ -228,6 +229,8 @@ for loops in range(5):
     c_calcStateSPDE(pathOld,params)
 
     c_GaussElim(pathOld,pathCur,params)
+
+    unitTest(pathCur)
 
     rotatePaths()
 

@@ -87,6 +87,8 @@ void GaussElim(averages* path0, averages* path1, parameters params);
 //   input: the filled path0 state (
 //   output: new path1.pos  
 
+void quadVar(averages* path, parameters params);
+
 
 
 // ==================================================================================
@@ -264,5 +266,17 @@ void GaussElim(averages* path0, averages* path1, parameters params){
   }
 }
 
+// ==================================================================================
+void quadVar(averages* path, parameters params){
+  // fill out the ForcePrime variables for the structure
+  // initial params must have the positions filled
+  double qv=0.0;
+  int i;
+
+  for(i=0;i<params.NumB-1;i++){
+    qv+=(path[i+1].pos-path[i].pos)*(path[i+1].pos-path[i].pos);
+  }
+  printf("qv=%f\n",qv/(2.0*params.eps*params.deltat*(params.NumB-1)));
+}
 // ==================================================================================
 
