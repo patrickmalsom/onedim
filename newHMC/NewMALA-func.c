@@ -40,7 +40,7 @@ typedef struct _parameters
 //     pos: array of positions 
 //     randlist: random gaussian numbers(0,1). should be passed from python 
 //               (TODO: read about the numpy RNG)
-//     Force/ForcePrime: array to store the forces along the path
+//     Force/Hessian: array to store the forces/Hessian along the path
 //     dg: dG/dx array
 //     rhs: RHS of the SPDE/MD eqns (different eqns for SPDE and MD)
 typedef struct _path
@@ -48,7 +48,7 @@ typedef struct _path
   double pos;
   double randlist;
   double Force;
-  double ForcePrime;
+  double Hessian;
   double dg;
   double rhs;
 } averages;
@@ -63,14 +63,14 @@ double Pot(double x);
 double Force(double x);
 // F(x)=-dU/dx: returns the force at a position
 
-double ForcePrime(double x);
+double Hessian(double x);
 // F'(x)=dF/dx: returns the force at a position
 
 void calcForces(averages* path, parameters params);
 // fill out the Force variables for the struce
 
-void calcForcePrime(averages* path, parameters params);
-// fill out the ForcePrime variables for the struce
+void calcHessian(averages* path, parameters params);
+// fill out the Hessian variables for the struce
 
 void calcdg(averages* path, parameters params);
 // calculate dG/dx for the structure
@@ -88,7 +88,9 @@ void GaussElim(averages* path0, averages* path1, parameters params);
 //   output: new path1.pos  
 
 void quadVar(averages* path, parameters params);
-
+// Calculate the quadratic variation of the path
+// This does not return anything (only prints a value)
+// The Quad Var is scaled to be 1.0 for all paths
 
 
 // ==================================================================================
@@ -105,9 +107,9 @@ double Force(double x) {
   return (x * (6.75 + x * (-5.0625 + x * (-11.3906 + (14.2383 - 4.27148 * x) * x))));
 }
 
-double ForcePrime(double x){
+double Hessian(double x){
   // F'(x)=dF/dx: returns the force at a position
-  return (6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x)));
+  return -(6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x)));
 }
 
 
@@ -125,15 +127,15 @@ void calcForces(averages* path, parameters params){
 }
 
 // ==================================================================================
-void calcForcePrimes(averages* path, parameters params){
-  // fill out the ForcePrime variables for the structure
+void calcHessian(averages* path, parameters params){
+  // fill out the Hessian variables for the structure
   // initial params must have the positions filled
   double x;
   int i;
 
   for(i=0;i<params.NumB;i++){
     x = path[i].pos;
-    path[i].ForcePrime= (6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x)));
+    path[i].Hessian= -(6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x)));
   }
 }
 
@@ -141,14 +143,14 @@ void calcForcePrimes(averages* path, parameters params){
 // ==================================================================================
 void calcdg(averages* path, parameters params){
   // calculate dG/dx for the structure
-  // intial positions/force/forceprime must be filled
+  // intial positions/force/Hessian must be filled
     int i;
     double g1st, g2nd, g3rd;
 
     for(i=1;i<params.NumB-1;i++){
-      g1st=path[i].ForcePrime*path[i].Force;
+      g1st=-path[i].Hessian*path[i].Force;
       g2nd=-0.5*params.invdt*(path[i+1].Force-2.0*path[i].Force+path[i-1].Force);
-      g3rd=-0.5*params.invdt*path[i].ForcePrime*(path[i+1].pos-2.0*path[i].pos+path[i-1].pos);
+      g3rd=+0.5*params.invdt*path[i].Hessian*(path[i+1].pos-2.0*path[i].pos+path[i-1].pos);
       path[i].dg=params.deltatau*(g1st+g2nd+g3rd);
     }
 }
@@ -181,7 +183,7 @@ void calcStateSPDE(averages* path, parameters params){
   // using the pos variables and the randlist
 
   calcForces(path, params);
-  calcForcePrimes(path, params);
+  calcHessian(path, params);
   calcdg(path, params);
   calcSPDErhs(path, params);
 }
@@ -193,7 +195,7 @@ void calcStateMD(averages* path, parameters params){
 // using the pos variables
 
   calcForces(path,params);
-  calcForcePrimes(path,params);
+  calcHessian(path,params);
   calcdg(path,params);
   calcrhsMD(path,params);
 }
@@ -268,7 +270,7 @@ void GaussElim(averages* path0, averages* path1, parameters params){
 
 // ==================================================================================
 void quadVar(averages* path, parameters params){
-  // fill out the ForcePrime variables for the structure
+  // fill out the Hessian variables for the structure
   // initial params must have the positions filled
   double qv=0.0;
   int i;

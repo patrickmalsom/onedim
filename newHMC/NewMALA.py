@@ -33,8 +33,8 @@ clib=ctypes.CDLL("NewMALA-func.so")
 c_calcForce=clib.calcForces
 # fill out the Force variables for the struce
 
-c_calcForcePrime=clib.calcForcePrimes
-# fill out the ForcePrime variables for the struce
+c_calcHessian=clib.calcHessian
+# fill out the Hessian variables for the struce
 
 c_calcdg=clib.calcdg
 # calculate dG/dx for the structure
@@ -220,7 +220,7 @@ for i in np.arange(0,len(inPath),1):
     pathOld[i].pos=inPath[i]
 
 
-for loops in range(5):
+for loops in range(50):
 
     # noise vector
     for i in np.arange(1,len(inPath)-1,1):
@@ -243,13 +243,13 @@ ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
 ps.print_stats()
 print s.getvalue()
 
-# test to see if the path is still correct
-for i in np.arange(0,len(inPath),1):
-    outPath[i]=pathOld[i].pos
+## test to see if the path is still correct
+#for i in np.arange(0,len(inPath),1):
+#    outPath[i]=pathOld[i].pos
 
-if (np.loadtxt("outPathfive.dat") == outPath).all():
-    print "SUCCESS!"
-else:
-    print "FAIL"
+#if (np.loadtxt("outPathfive.dat") == outPath).all():
+#    print "SUCCESS!"
+#else:
+#    print "FAIL"
 
-#np.savetxt("outPathC.dat",outPath)
+##np.savetxt("outPathC.dat",outPath)
