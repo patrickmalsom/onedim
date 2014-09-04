@@ -8,6 +8,7 @@
 import numpy as np
 import math
 import sys
+import matplotlib.pyplot as plt
 
 # python profiler
 import cProfile, pstats, StringIO
@@ -30,7 +31,7 @@ clib=ctypes.CDLL("NewMALA-func.so")
 #c_Pot=clib.Pot
 #clib.Pot.restype = DOUBLE
 
-c_calcForce=clib.calcForces
+c_calcForces=clib.calcForces
 # fill out the Force variables for the struce
 
 c_calcHessian=clib.calcHessian
@@ -40,15 +41,16 @@ c_calcdg=clib.calcdg
 # calculate dG/dx for the structure
 
 c_calcSPDErhs=clib.calcSPDErhs
+c_calcMDrhs=clib.calcMDrhs
 # calculate the right hand side vector for the SPDE
 
-c_calcStateSPDE=clib.calcStateSPDE
-# Function to calculate all of the structure parameters for the SPDE step
 
 c_GaussElim=clib.GaussElim
 # Gaussian elimination for computing L.x=b where L is the second deriv matrix
 
 c_quadVar=clib.quadVar
+
+c_calcDeltae=clib.calcDeltae
 
 # ===============================================
 # constants/parameters
@@ -92,7 +94,8 @@ class Averages(ctypes.Structure):
   _fields_ = [('pos', DOUBLE),
               ('randlist', DOUBLE),
               ('Force', DOUBLE),
-              ('ForcePrime', DOUBLE),
+              ('Hessian', DOUBLE),
+              ('deltae', DOUBLE),
               ('dg', DOUBLE),
               ('rhs', DOUBLE)
              ]
@@ -164,6 +167,7 @@ def rotatePaths():
     pathOld=pathCur
     pathCur=pathNew
     pathNew=temp
+    del temp
 
 # ===============================================
 # Unit Tests
@@ -183,12 +187,25 @@ def quadVar(poslist):
 def checkBCs(path):
     return [path[0],path[-1]]
 
+def printState(path0,path1,path2,beadNum):
+    print ""
+    print "================"
+    print "path0:"+str(path0[beadNum].pos)+"  "+str(path0[beadNum].Force)+"  "+str(path0[beadNum].dg)
+    print "path1:"+str(path1[beadNum].pos)+"  "+str(path1[beadNum].Force)+"  "+str(path1[beadNum].dg)
+    print "path2:"+str(path2[beadNum].pos)+"  "+str(path2[beadNum].Force)+"  "+str(path2[beadNum].dg)
+    print ""
+
+def plotPath(path):
+    tempPath=[path[i].pos for i in range(NumB)]
+    plt.plot(tempPath)
+    plt.show()
+
 # ===============================================
 # MAIN loop
 
 np.random.seed(101)
 
-inPath=np.loadtxt("SDEPath-fat-skinny.dat")
+inPath=np.loadtxt("outPathC.dat")
 
 # ===============================================
 # Initializing the structs
@@ -212,44 +229,79 @@ pathNew=pathType()
 # testing temporary array
 outPath=np.array([0.0 for i in np.arange(0,len(inPath),1)])
 
-# start the profiler
-pr = cProfile.Profile()
-pr.enable()
+## start the profiler
+#pr = cProfile.Profile()
+#pr.enable()
 
 for i in np.arange(0,len(inPath),1):
-    pathOld[i].pos=inPath[i]
+    pathCur[i].pos=inPath[i]
 
 
-for loops in range(50):
+for loops in range(10):
 
     # noise vector
     for i in np.arange(1,len(inPath)-1,1):
-        pathOld[i].randlist=np.random.normal(0,1)
+        pathCur[i].randlist=np.random.normal(0,1)
+    #printState(pathOld,pathCur,pathNew,1)
 
-    c_calcStateSPDE(pathOld,params)
+    c_calcForces(pathCur, params)
+    c_calcHessian(pathCur, params)
+    c_calcdg(pathCur, params)
+    c_calcDeltae(pathCur, params)
+    c_calcSPDErhs(pathCur, params)
+    # filled the entire pathOld struct
 
-    c_GaussElim(pathOld,pathCur,params)
-
-    unitTest(pathCur)
-
+    c_GaussElim(pathCur,pathNew,params)
+    # generates the pathCur positions
     rotatePaths()
+    print "SPDE"
+    unitTest(pathCur)
+    #print "Start: "+str(pathCur[0].pos)+"     End: "+str(pathCur[-1].pos)
+#    plotPath(pathCur)
+
+    for j in range(100):
+        c_calcForces(pathCur, params)
+        c_calcHessian(pathCur, params)
+        c_calcDeltae(pathCur, params)
+        c_calcdg(pathCur, params)
+ 
+        c_calcMDrhs(pathOld, pathCur, params)
+    #    printState(pathOld,pathCur,pathNew,1)
+
+        c_GaussElim(pathCur,pathNew,params)
+        # generates the pathNew positions
+        rotatePaths()
+        if j%10 ==0:
+            unitTest(pathCur)
+        # rotate the path structs
+
+    #print "Start: "+str(pathCur[0].pos)+"     End: "+str(pathCur[-1].pos)
+#    plotPath(pathCur)
 
 
-# profiler stop
-pr.disable()
-s = StringIO.StringIO()
-sortby = 'cumulative'
-ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-ps.print_stats()
-print s.getvalue()
+#dgTemp=[pathOld[i].dg for i in range(NumB)]
+#plt.plot(dgTemp)
+#plt.show()
 
-## test to see if the path is still correct
-#for i in np.arange(0,len(inPath),1):
-#    outPath[i]=pathOld[i].pos
+#hessTemp=[pathOld[i].Hessian for i in range(NumB)]
+#plt.plot(hessTemp)
+#plt.show()
+
+## profiler stop
+#pr.disable()
+#s = StringIO.StringIO()
+#sortby = 'cumulative'
+#ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+#ps.print_stats()
+#print s.getvalue()
+
+# test to see if the path is still correct
+for i in np.arange(0,len(inPath),1):
+    outPath[i]=pathOld[i].pos
 
 #if (np.loadtxt("outPathfive.dat") == outPath).all():
 #    print "SUCCESS!"
 #else:
 #    print "FAIL"
 
-##np.savetxt("outPathC.dat",outPath)
+#np.savetxt("outPathC.dat",outPath)

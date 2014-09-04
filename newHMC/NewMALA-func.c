@@ -49,6 +49,7 @@ typedef struct _path
   double randlist;
   double Force;
   double Hessian;
+  double deltae;
   double dg;
   double rhs;
 } averages;
@@ -72,14 +73,15 @@ void calcForces(averages* path, parameters params);
 void calcHessian(averages* path, parameters params);
 // fill out the Hessian variables for the struce
 
+void calcDeltae(averages* path, parameters params);
+// find the change in energy for each point along the path
+
 void calcdg(averages* path, parameters params);
 // calculate dG/dx for the structure
 
 void calcSPDErhs(averages* path, parameters params);
 // calculate the right hand side vector for the SPDE
 
-void calcStateSPDE(averages* path, parameters params);
-// Function to calculate all of the structure parameters for the SPDE step
 
 void GaussElim(averages* path0, averages* path1, parameters params);
 // Gaussian elimination for computing L.x=b where L is the second deriv matrix
@@ -122,7 +124,8 @@ void calcForces(averages* path, parameters params){
 
   for(i=0;i<params.NumB;i++){
     x = path[i].pos;
-    path[i].Force= (x * (6.75 + x * (-5.0625 + x * (-11.3906 + (14.2383 - 4.27148 * x) * x))));
+    //path[i].Force= (x * (6.75 + x * (-5.0625 + x * (-11.3906 + (14.2383 - 4.27148 * x) * x))));
+    path[i].Force= x*(6.75 + x*(-5.0625 + x*(-11.390625 + (14.23828125 - 4.271484375*x)*x)));
   }
 }
 
@@ -135,7 +138,17 @@ void calcHessian(averages* path, parameters params){
 
   for(i=0;i<params.NumB;i++){
     x = path[i].pos;
-    path[i].Hessian= -(6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x)));
+    //path[i].Hessian= -(6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x)));
+    path[i].Hessian= -6.75 + x * (10.125 + x * (34.1719 + x * (-56.9531 + 21.3574 * x)));
+  }
+}
+
+// ==================================================================================
+void calcDeltae(averages* path, parameters params){
+  // find the change in energy for each point along the path
+  int i;
+  for(i=0;i<params.NumB-1;i++){
+    path[i].deltae = Pot(path[i+1].pos)-Pot(path[i].pos) + 0.5*(path[i+1].Force - path[i].Force)*(path[i+1].pos - path[i].pos) + params.deltat*0.25*( path[i+1].Force*path[i+1].Force - path[i].Force*path[i].Force);
   }
 }
 
@@ -144,15 +157,29 @@ void calcHessian(averages* path, parameters params){
 void calcdg(averages* path, parameters params){
   // calculate dG/dx for the structure
   // intial positions/force/Hessian must be filled
-    int i;
-    double g1st, g2nd, g3rd;
+  int i;
 
-    for(i=1;i<params.NumB-1;i++){
-      g1st=-path[i].Hessian*path[i].Force;
-      g2nd=-0.5*params.invdt*(path[i+1].Force-2.0*path[i].Force+path[i-1].Force);
-      g3rd=+0.5*params.invdt*path[i].Hessian*(path[i+1].pos-2.0*path[i].pos+path[i-1].pos);
-      path[i].dg=params.deltatau*(g1st+g2nd+g3rd);
-    }
+  double dPlus;
+  double dMinus;
+  for(i=1;i<params.NumB-1;i++){
+    dPlus = (path[i+1].pos-path[i].pos)*params.invdt - path[i].Force;
+    dMinus = (path[i].pos-path[i-1].pos)*params.invdt + path[i].Force;
+
+    path[i].dg  = (2.0*path[i].Force - path[i-1].Force - path[i+1].Force)*params.invdt;
+    path[i].dg += path[i].Hessian*(dPlus-dMinus);
+//    path[i].dg += copysign(1.0,path[i].deltae) * ((path[i].Force - path[i-1].Force)*params.invdt - path[i].Hessian*dPlus);
+//    path[i].dg += copysign(1.0,path[i-1].deltae) * ((path[i-1].Force - path[i].Force)*params.invdt - path[i].Hessian*dMinus);
+    path[i].dg *=0.5;
+  }
+
+//  double g1st, g2nd, g3rd;
+
+//  for(i=1;i<params.NumB-1;i++){
+//    g1st=-path[i].Hessian*path[i].Force;
+//    g2nd=-0.5*params.invdt*(path[i+1].Force-2.0*path[i].Force+path[i-1].Force);
+//    g3rd=+0.5*params.invdt*path[i].Hessian*(path[i+1].pos-2.0*path[i].pos+path[i-1].pos);
+//    path[i].dg=params.deltatau*(g1st+g2nd+g3rd);
+//  }
 }
 
 // ==================================================================================
@@ -168,7 +195,7 @@ void calcSPDErhs(averages* path, parameters params){
 
   for(i=1;i<params.NumB-1;i++){
     temp1 = params.r*path[i-1].pos + (1.-2.*params.r)*path[i].pos + params.r*path[i+1].pos;
-    temp2 = path[i].dg;
+    temp2 = params.deltatau*path[i].dg;
     temp3 = params.noisePref*path[i].randlist;
     path[i].rhs=temp1-temp2+temp3;
   }
@@ -177,15 +204,23 @@ void calcSPDErhs(averages* path, parameters params){
 
 }
 
-// ==================================================================================
-void calcStateSPDE(averages* path, parameters params){
-  // Function to calculate all of the structure parameters for the SPDE step
-  // using the pos variables and the randlist
 
-  calcForces(path, params);
-  calcHessian(path, params);
-  calcdg(path, params);
-  calcSPDErhs(path, params);
+// ==================================================================================
+void calcMDrhs(averages* path0, averages* path1, parameters params){
+  int i;
+  
+  for(i=1; i<params.NumB-1;i++){
+
+    path1[i].rhs  = 2.0*(params.r*path1[i-1].pos + (1.0-2.0*params.r)*path1[i].pos + params.r*path1[i+1].pos);
+    path1[i].rhs += -1.0*(-params.r*path0[i-1].pos + (1.0+2.0*params.r)*path0[i].pos - params.r*path0[i+1].pos);
+    path1[i].rhs -= 2.0*params.deltatau*path1[i].dg;
+  }
+
+  path1[1].rhs += 2.0*params.r*path1[0].pos;
+  path1[1].rhs += -params.r*path0[0].pos;
+  path1[params.NumB-2].rhs += 2.0*params.r*path1[params.NumB-1].pos;
+  path1[params.NumB-2].rhs += -params.r*path1[params.NumB-1].pos;
+
 }
 
 /*
@@ -200,9 +235,6 @@ void calcStateMD(averages* path, parameters params){
   calcrhsMD(path,params);
 }
 
-// ==================================================================================
-void calcMDrhs(averages* path0, averages* path1, averages* path2, parameters params){
-}
 
 // ==================================================================================
 double calcEnergyChange(averages* path0, averages* path1, parameters params){
