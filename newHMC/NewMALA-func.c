@@ -185,6 +185,8 @@ void calcMDrhs(averages* path0, averages* path1, parameters params){
 
 // ==================================================================================
 void calcPhi(averages* path, parameters params){
+  int i;
+
   double Psi;
   double F0;
   double F1;
@@ -192,9 +194,10 @@ void calcPhi(averages* path, parameters params){
   for(i=0;i<params.NumB-1;i++){
     F0=path[i].Force;
     F1=path[i+1].Force;
-    Psi=0.25*(F1*F1)+0.25*(F0*F0)+0.5(F1-F0)*params.invdt*(path[i+1].pos-path[i].pos);
+    Psi=0.25*(F1*F1)+0.25*(F0*F0)+0.5*(F1-F0)*params.invdt*(path[i+1].pos-path[i].pos);
     
     path[i].Phi=Psi+abs(path[i].deltae)*params.invdt;
+  }
 }
 
 // ==================================================================================

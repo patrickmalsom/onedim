@@ -10,6 +10,19 @@ import math
 import sys
 import matplotlib.pyplot as plt
 
+# Argparse: command line options
+import argparse
+parser = argparse.ArgumentParser(description='New HMC algorithm (finite time step) for 1D external potential')
+parser.add_argument('-t','--test', help='run py.test unit tests')
+parser.add_argument('-i','--infile', type=str, default='inFile.dat', help='input path positions; default=inFile.dat')
+parser.add_argument('-o','--outfile', type=str, default='outFile.dat', help='output path positions; default=outFile.dat')
+parser.add_argument('-T','--temperature', type=float, default=0.15, help='configurational temperature; default=0.15')
+parser.add_argument('--deltat', type=float, default=0.005, help='time step along the path; default=0.005')
+parser.add_argument('--deltatau', type=float, default=0.00001, help='time step between paths; default=0.00001')
+parser.add_argument('-N','--Num', type=int, default=100001, help='path length (number of beads); default=100001')
+args = parser.parse_args()
+
+
 # python profiler
 import cProfile, pstats, StringIO
 
@@ -52,18 +65,32 @@ c_quadVar=clib.quadVar
 
 c_calcDeltae=clib.calcDeltae
 
+## ===============================================
+## constants/parameters
+## ===============================================
+#deltat=0.005 # time step along the path
+#invdt=1/deltat # reciprocal of time step
+#eps=0.15 # configurational temperature
+#deltatau=0.00001 # time step between paths
+#noisePref=math.sqrt(4.0*eps*deltatau*invdt) # scaling for the random noise term
+#r=deltatau*0.5*invdt*invdt # constant matrix element in L (I+-rL)
+#NumB=100001 # number of 'beads' (total positions in path, path length)
+#NumU=10000 # number of time steps
+#NumL=99999 # size of matrix (I+-rL)
+#xStart=-2./3. # starting boundary condition
+#xEnd=4./3. # ending boundary condition
 # ===============================================
 # constants/parameters
 # ===============================================
-deltat=0.005 # time step along the path
+deltat=args.deltat # time step along the path
 invdt=1/deltat # reciprocal of time step
-eps=0.15 # configurational temperature
-deltatau=0.00001 # time step between paths
+eps=args.temperature # configurational temperature
+deltatau=args.deltatau # time step between paths
 noisePref=math.sqrt(4.0*eps*deltatau*invdt) # scaling for the random noise term
 r=deltatau*0.5*invdt*invdt # constant matrix element in L (I+-rL)
-NumB=100001 # number of 'beads' (total positions in path, path length)
-NumU=10000 # number of time steps
-NumL=99999 # size of matrix (I+-rL)
+NumB=args.Num# number of 'beads' (total positions in path, path length)
+NumU=NumB-1 # number of time steps
+NumL=NumB-2 # size of matrix (I+-rL)
 xStart=-2./3. # starting boundary condition
 xEnd=4./3. # ending boundary condition
 
@@ -206,7 +233,7 @@ def plotPath(path):
 
 np.random.seed(101)
 
-inPath=np.loadtxt("outPathC.dat")
+inPath=np.loadtxt(args.infile)
 
 # ===============================================
 # Initializing the structs
@@ -298,11 +325,11 @@ for loops in range(10):
 
 # test to see if the path is still correct
 for i in np.arange(0,len(inPath),1):
-    outPath[i]=pathOld[i].pos
+    outPath[i]=pathCur[i].pos
 
 #if (np.loadtxt("outPathfive.dat") == outPath).all():
 #    print "SUCCESS!"
 #else:
 #    print "FAIL"
 
-#np.savetxt("outPathC.dat",outPath)
+np.savetxt(args.outfile,outPath)
