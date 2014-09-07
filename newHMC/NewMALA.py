@@ -97,6 +97,7 @@ class Averages(ctypes.Structure):
               ('Hessian', DOUBLE),
               ('deltae', DOUBLE),
               ('dg', DOUBLE),
+              ('Phi', DOUBLE),
               ('rhs', DOUBLE)
              ]
 # define the array of averages that is to be passed to the C routine

@@ -51,49 +51,9 @@ typedef struct _path
   double Hessian;
   double deltae;
   double dg;
+  double Phi;
   double rhs;
 } averages;
-
-// ==================================================================================
-// Function prototypes
-// ==================================================================================
-
-double Pot(double x);
-// U(x): returns the potential at a position
-
-double Force(double x);
-// F(x)=-dU/dx: returns the force at a position
-
-double Hessian(double x);
-// F'(x)=dF/dx: returns the force at a position
-
-void calcForces(averages* path, parameters params);
-// fill out the Force variables for the struce
-
-void calcHessian(averages* path, parameters params);
-// fill out the Hessian variables for the struce
-
-void calcDeltae(averages* path, parameters params);
-// find the change in energy for each point along the path
-
-void calcdg(averages* path, parameters params);
-// calculate dG/dx for the structure
-
-void calcSPDErhs(averages* path, parameters params);
-// calculate the right hand side vector for the SPDE
-
-
-void GaussElim(averages* path0, averages* path1, parameters params);
-// Gaussian elimination for computing L.x=b where L is the second deriv matrix
-//   L matrix: mainDiag: (1+2r) ; upper(lower)Diag: (-r)
-//   input: the filled path0 state (
-//   output: new path1.pos  
-
-void quadVar(averages* path, parameters params);
-// Calculate the quadratic variation of the path
-// This does not return anything (only prints a value)
-// The Quad Var is scaled to be 1.0 for all paths
-
 
 // ==================================================================================
 // Functions
@@ -223,23 +183,24 @@ void calcMDrhs(averages* path0, averages* path1, parameters params){
 
 }
 
-/*
 // ==================================================================================
-void calcStateMD(averages* path, parameters params){
-// Function to calculate all of the structure parameters 
-// using the pos variables
+void calcPhi(averages* path, parameters params){
+  double Psi;
+  double F0;
+  double F1;
 
-  calcForces(path,params);
-  calcHessian(path,params);
-  calcdg(path,params);
-  calcrhsMD(path,params);
+  for(i=0;i<params.NumB-1;i++){
+    F0=path[i].Force;
+    F1=path[i+1].Force;
+    Psi=0.25*(F1*F1)+0.25*(F0*F0)+0.5(F1-F0)*params.invdt*(path[i+1].pos-path[i].pos);
+    
+    path[i].Phi=Psi+abs(path[i].deltae)*params.invdt;
 }
-
 
 // ==================================================================================
 double calcEnergyChange(averages* path0, averages* path1, parameters params){
+  return(0.0);
 }
-*/
 
 
 // ==================================================================================
