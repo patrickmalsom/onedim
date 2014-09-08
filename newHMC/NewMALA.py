@@ -13,18 +13,28 @@ import matplotlib.pyplot as plt
 # Argparse: command line options
 import argparse
 parser = argparse.ArgumentParser(description='New HMC algorithm (finite time step) for 1D external potential')
-parser.add_argument('-t','--test', help='run py.test unit tests')
+parser.add_argument('-t','--test', help='run py.test unit tests', action="store_true")
 parser.add_argument('-i','--infile', type=str, default='inFile.dat', help='input path positions; default=inFile.dat')
 parser.add_argument('-o','--outfile', type=str, default='outFile.dat', help='output path positions; default=outFile.dat')
 parser.add_argument('-T','--temperature', type=float, default=0.15, help='configurational temperature; default=0.15')
 parser.add_argument('--deltat', type=float, default=0.005, help='time step along the path; default=0.005')
 parser.add_argument('--deltatau', type=float, default=0.00001, help='time step between paths; default=0.00001')
-parser.add_argument('-N','--Num', type=int, default=100001, help='path length (number of beads); default=100001')
+parser.add_argument('--Num', type=int, default=100001, help='path length (number of beads); default=100001')
+parser.add_argument('--HMCloops', type=int, default=2, help='number of HMC loops (SDE+MD+MC); default=20')
+parser.add_argument('--MDloops', type=int, default=50, help='number of MD loops for each HMC loop; default=50')
 args = parser.parse_args()
 
 
 # python profiler
 import cProfile, pstats, StringIO
+
+# if testing mode flag is given
+if args.test:
+    # dont run any HMC loops
+    args.HMCloops=0
+    # py.test unit testing suite
+    import pytest
+    pytest.main("NewMALA.py")
 
 # ===============================================
 # Ctypes
@@ -65,32 +75,20 @@ c_quadVar=clib.quadVar
 
 c_calcDeltae=clib.calcDeltae
 
-## ===============================================
-## constants/parameters
-## ===============================================
-#deltat=0.005 # time step along the path
-#invdt=1/deltat # reciprocal of time step
-#eps=0.15 # configurational temperature
-#deltatau=0.00001 # time step between paths
-#noisePref=math.sqrt(4.0*eps*deltatau*invdt) # scaling for the random noise term
-#r=deltatau*0.5*invdt*invdt # constant matrix element in L (I+-rL)
-#NumB=100001 # number of 'beads' (total positions in path, path length)
-#NumU=10000 # number of time steps
-#NumL=99999 # size of matrix (I+-rL)
-#xStart=-2./3. # starting boundary condition
-#xEnd=4./3. # ending boundary condition
 # ===============================================
 # constants/parameters
 # ===============================================
 deltat=args.deltat # time step along the path
-invdt=1/deltat # reciprocal of time step
 eps=args.temperature # configurational temperature
 deltatau=args.deltatau # time step between paths
+NumB=args.Num# number of 'beads' (total positions in path, path length)
+
+invdt=1/deltat # reciprocal of time step
 noisePref=math.sqrt(4.0*eps*deltatau*invdt) # scaling for the random noise term
 r=deltatau*0.5*invdt*invdt # constant matrix element in L (I+-rL)
-NumB=args.Num# number of 'beads' (total positions in path, path length)
 NumU=NumB-1 # number of time steps
 NumL=NumB-2 # size of matrix (I+-rL)
+
 xStart=-2./3. # starting boundary condition
 xEnd=4./3. # ending boundary condition
 
@@ -199,6 +197,17 @@ def rotatePaths():
 
 # ===============================================
 # Unit Tests
+# ===============================================
+def tFunc(x):
+    return x+1
+
+def test_example_test1():
+    assert tFunc(2)==3
+
+def test_example_test2():
+    assert tFunc(2)==3 
+
+# Unit Tests
 def unitTest(path):
     # print the quadratic variation
     c_quadVar(path,params)
@@ -206,27 +215,27 @@ def unitTest(path):
     #if inpath[0] != outpath[0] and inpath[-1] != outpath[-1]:
     #    sys.exit("Boundary Conditions Changed! Aborting...")
     
-def quadVar(poslist):
-    quadVarSum=sum([(poslist[i]-poslist[i+1])**2 for i in range(len(poslist)-1)])
-    quadVarSum/=(2.*eps*deltat*(len(poslist)-1))
-    print "quad var: " + str(quadVarSum)
+#def quadVar(poslist):
+#    quadVarSum=sum([(poslist[i]-poslist[i+1])**2 for i in range(len(poslist)-1)])
+#    quadVarSum/=(2.*eps*deltat*(len(poslist)-1))
+#    print "quad var: " + str(quadVarSum)
 
-# check for the 
-def checkBCs(path):
-    return [path[0],path[-1]]
+## check for the 
+#def checkBCs(path):
+#    return [path[0],path[-1]]
 
-def printState(path0,path1,path2,beadNum):
-    print ""
-    print "================"
-    print "path0:"+str(path0[beadNum].pos)+"  "+str(path0[beadNum].Force)+"  "+str(path0[beadNum].dg)
-    print "path1:"+str(path1[beadNum].pos)+"  "+str(path1[beadNum].Force)+"  "+str(path1[beadNum].dg)
-    print "path2:"+str(path2[beadNum].pos)+"  "+str(path2[beadNum].Force)+"  "+str(path2[beadNum].dg)
-    print ""
+#def printState(path0,path1,path2,beadNum):
+#    print ""
+#    print "================"
+#    print "path0:"+str(path0[beadNum].pos)+"  "+str(path0[beadNum].Force)+"  "+str(path0[beadNum].dg)
+#    print "path1:"+str(path1[beadNum].pos)+"  "+str(path1[beadNum].Force)+"  "+str(path1[beadNum].dg)
+#    print "path2:"+str(path2[beadNum].pos)+"  "+str(path2[beadNum].Force)+"  "+str(path2[beadNum].dg)
+#    print ""
 
-def plotPath(path):
-    tempPath=[path[i].pos for i in range(NumB)]
-    plt.plot(tempPath)
-    plt.show()
+#def plotPath(path):
+#    tempPath=[path[i].pos for i in range(NumB)]
+#    plt.plot(tempPath)
+#    plt.show()
 
 # ===============================================
 # MAIN loop
@@ -265,7 +274,7 @@ for i in np.arange(0,len(inPath),1):
     pathCur[i].pos=inPath[i]
 
 
-for loops in range(10):
+for loops in range(args.HMCloops):
 
     # noise vector
     for i in np.arange(1,len(inPath)-1,1):
@@ -287,7 +296,7 @@ for loops in range(10):
     #print "Start: "+str(pathCur[0].pos)+"     End: "+str(pathCur[-1].pos)
 #    plotPath(pathCur)
 
-    for j in range(100):
+    for j in range(args.MDloops):
         c_calcForces(pathCur, params)
         c_calcHessian(pathCur, params)
         c_calcDeltae(pathCur, params)
