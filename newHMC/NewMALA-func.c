@@ -216,7 +216,7 @@ double calcEnergyChange(averages* path0, averages* path1, parameters params){
 
   //calculate the first term in the notes and multiply by constant
   for(i=1;i<params.NumB-1;i++){
-    temp1 += (path1[i].dg+path0[i].dg)*(path1[i].pos*path0[i].pos);
+    temp1 += (path1[i].dg+path0[i].dg)*(path1[i].pos-path0[i].pos);
   }
   temp1 = 0.5*temp1;
 
@@ -225,8 +225,8 @@ double calcEnergyChange(averages* path0, averages* path1, parameters params){
   for(i=1;i<params.NumB-1;i++){
     //calculate the inner term of the sum
     temp2inner  = invdt2*(path1[i+1].pos-2.0*path1[i].pos+path1[i-1].pos);
-    temp2inner += -path1[i].dg;
     temp2inner += invdt2*(path0[i+1].pos-2.0*path0[i].pos+path0[i-1].pos);
+    temp2inner += -path1[i].dg;
     temp2inner += -path0[i].dg;
     // incrimenting the sum
     temp2 += temp2inner*(path1[i].dg-path0[i].dg);
@@ -298,7 +298,7 @@ void GaussElim(averages* path0, averages* path1, parameters params){
 }
 
 // ==================================================================================
-void quadVar(averages* path, parameters params){
+double quadVar(averages* path, parameters params){
   // fill out the Hessian variables for the structure
   // initial params must have the positions filled
   double qv=0.0;
@@ -307,7 +307,7 @@ void quadVar(averages* path, parameters params){
   for(i=0;i<params.NumB-1;i++){
     qv+=(path[i+1].pos-path[i].pos)*(path[i+1].pos-path[i].pos);
   }
-  printf("qv=%f\n",qv/(2.0*params.eps*params.deltat*(params.NumB-1)));
+  return(qv/(2.0*params.eps*params.deltat*(params.NumB-1)));
 }
 // ==================================================================================
 

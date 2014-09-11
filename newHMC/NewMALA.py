@@ -18,7 +18,7 @@ parser.add_argument('-i','--infile', type=str, default='inFile.dat', help='input
 parser.add_argument('-o','--outfile', type=str, default='outFile.dat', help='output path positions; default=outFile.dat')
 parser.add_argument('-T','--temperature', type=float, default=0.15, help='configurational temperature; default=0.15')
 parser.add_argument('--deltat', type=float, default=0.001, help='time step along the path; default=0.005')
-parser.add_argument('--deltatau', type=float, default=0.000001, help='time step between paths; default=0.00001')
+parser.add_argument('--deltatau', type=float, default=0.0000000001, help='time step between paths; default=0.00001')
 parser.add_argument('--Num', type=int, default=100001, help='path length (number of beads); default=100001')
 parser.add_argument('--HMCloops', type=int, default=2, help='number of HMC loops (SDE+MD+MC); default=20')
 parser.add_argument('--MDloops', type=int, default=50, help='number of MD loops for each HMC loop; default=50')
@@ -69,7 +69,11 @@ c_calcMDrhs=clib.calcMDrhs
 c_GaussElim=clib.GaussElim
 # Gaussian elimination for computing L.x=b where L is the second deriv matrix
 
+c_calcEnergyChange=clib.calcEnergyChange
+clib.calcEnergyChange.restype = DOUBLE
+
 c_quadVar=clib.quadVar
+clib.quadVar.restype = DOUBLE
 
 c_calcDeltae=clib.calcDeltae
 c_calcPhi=clib.calcPhi
@@ -187,6 +191,24 @@ def rotatePaths():
     pathNew=temp
     del temp
 
+def FillAllStates():
+    global pathOld,pathCur,pathNew
+    c_calcForces(pathOld, params)
+    c_calcHessian(pathOld, params)
+    c_calcDeltae(pathOld, params)
+    c_calcPhi(pathOld, params)
+    c_calcdg(pathOld, params)
+    c_calcForces(pathCur, params)
+    c_calcHessian(pathCur, params)
+    c_calcDeltae(pathCur, params)
+    c_calcPhi(pathCur, params)
+    c_calcdg(pathCur, params)
+    c_calcForces(pathNew, params)
+    c_calcHessian(pathNew, params)
+    c_calcDeltae(pathNew, params)
+    c_calcPhi(pathNew, params)
+    c_calcdg(pathNew, params)
+
 # ===============================================
 # Unit Tests
 # ===============================================
@@ -212,9 +234,10 @@ class TestClass:
         pytest.exit("ending the tests")
 
 # Unit Tests
-def unitTest(path):
+#def unitTest(path,Echange):
+#    print "quadVar:" str(c_quadVar(path,params)) + "    Delta E:" + str(Echange)
     # print the quadratic variation
-    c_quadVar(path,params)
+    #print str(c_quadVar(path,params))
     # verify that the boundary conditions have not changed
     #if inpath[0] != outpath[0] and inpath[-1] != outpath[-1]:
     #    sys.exit("Boundary Conditions Changed! Aborting...")
@@ -284,40 +307,57 @@ for HMCIter in range(args.HMCloops):
     #printState(pathOld,pathCur,pathNew,1)
 
     # calculate the current state 
-    c_calcForces(pathCur, params)
-    c_calcHessian(pathCur, params)
-    c_calcDeltae(pathCur, params)
-    c_calcPhi(pathCur, params)
-    c_calcdg(pathCur, params)
+
+    FillAllStates()
 
     c_calcSPDErhs(pathCur, params)
     # filled the entire pathOld struct
 
-    c_GaussElim(pathCur,pathNew,params)
     # generates the pathCur positions
+    c_GaussElim(pathCur,pathNew,params)
+
+    FillAllStates()
+
+
+    Echange=c_calcEnergyChange(pathCur,pathNew,params)
+
+
+    if HMCIter != 0:
+        print "DELTA PHI: " + str( sum([pathCur[i].Phi - pathOld[i].Phi for i in range(NumB)] ) )
+        print " PHI100: " + str( pathCur[100].Phi )
+        #pTop=math.sqrt(params.deltatau/2.0) * ( (pathCur[i+1].pos-2.0*pathCur[i].pos+pathCur[i-1].pos) - pathCur[i].dg +(pathOld[i+1].pos-2.0*pathOld[i].pos+pathOld[i-1].pos) - pathOld[i].dg ) + params.noisePref*pathOld[i].randlist
+
+             
+
+
+
+
     rotatePaths()
-    print "SPDE"
-    unitTest(pathCur)
-    #print "Start: "+str(pathCur[0].pos)+"     End: "+str(pathCur[-1].pos)
-#    plotPath(pathCur)
+    FillAllStates()
+    print "SPDE:   quadVar:" + str(c_quadVar(pathCur,params)) + "    Delta E:" + str(Echange)
+    print "========================"
+
 
     for MDIter in range(args.MDloops):
  
         # calculate the current state 
-        c_calcForces(pathCur, params)
-        c_calcHessian(pathCur, params)
-        c_calcDeltae(pathCur, params)
-        c_calcPhi(pathCur, params)
-        c_calcdg(pathCur, params)
+        FillAllStates()
  
         c_calcMDrhs(pathOld, pathCur, params)
     #    printState(pathOld,pathCur,pathNew,1)
 
         c_GaussElim(pathCur,pathNew,params)
         # generates the pathNew positions
+        FillAllStates()
+
+        Echange=c_calcEnergyChange(pathCur,pathNew,params)
+
+ 
         rotatePaths()
-        if MDIter % 10 == 0:
-            unitTest(pathCur)
+        FillAllStates()
+        if MDIter % 1 == 0:
+            print "quadVar:" + str(c_quadVar(pathCur,params)) + "    Delta E:" + str(Echange)
+            print "DELTA PHI: " + str( sum([pathCur[i].Phi - pathOld[i].Phi for i in range(NumB)] ) )
         # rotate the path structs
 
     #print "Start: "+str(pathCur[0].pos)+"     End: "+str(pathCur[-1].pos)
