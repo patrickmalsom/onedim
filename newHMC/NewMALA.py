@@ -3,7 +3,7 @@
 # MALA routine
 
 # ===============================================
-# Import libraries
+# Import and setup libraries
 # ===============================================
 import numpy as np
 import math
@@ -17,8 +17,8 @@ parser.add_argument('-t','--test', help='run py.test unit tests', action="store_
 parser.add_argument('-i','--infile', type=str, default='inFile.dat', help='input path positions; default=inFile.dat')
 parser.add_argument('-o','--outfile', type=str, default='outFile.dat', help='output path positions; default=outFile.dat')
 parser.add_argument('-T','--temperature', type=float, default=0.15, help='configurational temperature; default=0.15')
-parser.add_argument('--deltat', type=float, default=0.005, help='time step along the path; default=0.005')
-parser.add_argument('--deltatau', type=float, default=0.00001, help='time step between paths; default=0.00001')
+parser.add_argument('--deltat', type=float, default=0.001, help='time step along the path; default=0.005')
+parser.add_argument('--deltatau', type=float, default=0.000001, help='time step between paths; default=0.00001')
 parser.add_argument('--Num', type=int, default=100001, help='path length (number of beads); default=100001')
 parser.add_argument('--HMCloops', type=int, default=2, help='number of HMC loops (SDE+MD+MC); default=20')
 parser.add_argument('--MDloops', type=int, default=50, help='number of MD loops for each HMC loop; default=50')
@@ -30,8 +30,6 @@ import cProfile, pstats, StringIO
 
 # if testing mode flag is given
 if args.test:
-    # dont run any HMC loops
-    args.HMCloops=0
     # py.test unit testing suite
     import pytest
     pytest.main("NewMALA.py")
@@ -74,6 +72,7 @@ c_GaussElim=clib.GaussElim
 c_quadVar=clib.quadVar
 
 c_calcDeltae=clib.calcDeltae
+c_calcPhi=clib.calcPhi
 
 # ===============================================
 # constants/parameters
@@ -89,9 +88,6 @@ r=deltatau*0.5*invdt*invdt # constant matrix element in L (I+-rL)
 NumU=NumB-1 # number of time steps
 NumL=NumB-2 # size of matrix (I+-rL)
 
-xStart=-2./3. # starting boundary condition
-xEnd=4./3. # ending boundary condition
-
 # ===============================================
 # C struct setup
 # ===============================================
@@ -105,10 +101,6 @@ class Parameters(ctypes.Structure):
               ('noisePref', DOUBLE),
               ('r', DOUBLE),
               ('NumB', INT),
-              ('NumU', INT),
-              ('NumL', INT),
-              ('xStart', DOUBLE),
-              ('xEnd', DOUBLE),
              ]
 # define the array of averages that is to be passed to the C routine
 paramType=Parameters
@@ -201,11 +193,23 @@ def rotatePaths():
 def tFunc(x):
     return x+1
 
-def test_example_test1():
-    assert tFunc(2)==3
+class TestClass:
 
-def test_example_test2():
-    assert tFunc(2)==3 
+    def test_setUp(self):
+        print "starting the test suite"
+        # dont run any HMC loops
+        args.HMCloops=0
+        assert 1
+
+    def test_example_test1(self):
+        assert tFunc(2)==3
+
+    def test_example_test2(self):
+        assert tFunc(2)==3 
+
+    def test_tearDown(self):
+        assert 1
+        pytest.exit("ending the tests")
 
 # Unit Tests
 def unitTest(path):
@@ -255,8 +259,6 @@ params.deltatau=deltatau
 params.noisePref=noisePref
 params.r=r
 params.NumB=NumB
-params.NumU=NumU # not used
-params.NumL=NumL
 
 pathOld=pathType()
 pathCur=pathType()
@@ -274,17 +276,20 @@ for i in np.arange(0,len(inPath),1):
     pathCur[i].pos=inPath[i]
 
 
-for loops in range(args.HMCloops):
+for HMCIter in range(args.HMCloops):
 
     # noise vector
     for i in np.arange(1,len(inPath)-1,1):
         pathCur[i].randlist=np.random.normal(0,1)
     #printState(pathOld,pathCur,pathNew,1)
 
+    # calculate the current state 
     c_calcForces(pathCur, params)
     c_calcHessian(pathCur, params)
-    c_calcdg(pathCur, params)
     c_calcDeltae(pathCur, params)
+    c_calcPhi(pathCur, params)
+    c_calcdg(pathCur, params)
+
     c_calcSPDErhs(pathCur, params)
     # filled the entire pathOld struct
 
@@ -296,10 +301,13 @@ for loops in range(args.HMCloops):
     #print "Start: "+str(pathCur[0].pos)+"     End: "+str(pathCur[-1].pos)
 #    plotPath(pathCur)
 
-    for j in range(args.MDloops):
+    for MDIter in range(args.MDloops):
+ 
+        # calculate the current state 
         c_calcForces(pathCur, params)
         c_calcHessian(pathCur, params)
         c_calcDeltae(pathCur, params)
+        c_calcPhi(pathCur, params)
         c_calcdg(pathCur, params)
  
         c_calcMDrhs(pathOld, pathCur, params)
@@ -308,7 +316,7 @@ for loops in range(args.HMCloops):
         c_GaussElim(pathCur,pathNew,params)
         # generates the pathNew positions
         rotatePaths()
-        if j%10 ==0:
+        if MDIter % 10 == 0:
             unitTest(pathCur)
         # rotate the path structs
 

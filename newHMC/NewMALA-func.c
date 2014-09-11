@@ -29,10 +29,6 @@ typedef struct _parameters
   double noisePref;
   double r;
   int NumB;
-  int NumU;
-  int NumL;
-  double xPlus;
-  double xMinus;
 } parameters;
 
 // Path Struct
@@ -108,7 +104,7 @@ void calcDeltae(averages* path, parameters params){
   // find the change in energy for each point along the path
   int i;
   for(i=0;i<params.NumB-1;i++){
-    path[i].deltae = Pot(path[i+1].pos)-Pot(path[i].pos) + 0.5*(path[i+1].Force - path[i].Force)*(path[i+1].pos - path[i].pos) + params.deltat*0.25*( path[i+1].Force*path[i+1].Force - path[i].Force*path[i].Force);
+    path[i].deltae = Pot(path[i+1].pos)-Pot(path[i].pos) + 0.5*(path[i+1].Force + path[i].Force)*(path[i+1].pos - path[i].pos) + params.deltat*0.25*( path[i+1].Force*path[i+1].Force - path[i].Force*path[i].Force);
   }
 }
 
@@ -127,19 +123,15 @@ void calcdg(averages* path, parameters params){
 
     path[i].dg  = (2.0*path[i].Force - path[i-1].Force - path[i+1].Force)*params.invdt;
     path[i].dg += path[i].Hessian*(dPlus-dMinus);
-//    path[i].dg += copysign(1.0,path[i].deltae) * ((path[i].Force - path[i-1].Force)*params.invdt - path[i].Hessian*dPlus);
-//    path[i].dg += copysign(1.0,path[i-1].deltae) * ((path[i-1].Force - path[i].Force)*params.invdt - path[i].Hessian*dMinus);
+    path[i].dg += copysign(1.0,path[i].deltae) * ((path[i].Force - path[i+1].Force)*params.invdt - path[i].Hessian*dPlus);
+    path[i].dg += copysign(1.0,path[i-1].deltae) * ((path[i-1].Force - path[i].Force)*params.invdt - path[i].Hessian*dMinus);
     path[i].dg *=0.5;
   }
 
-//  double g1st, g2nd, g3rd;
+  // boundaries are set to zero
+  //path[0].dg=0.0;
+  //path[params.NumB-1].dg=0.0;
 
-//  for(i=1;i<params.NumB-1;i++){
-//    g1st=-path[i].Hessian*path[i].Force;
-//    g2nd=-0.5*params.invdt*(path[i+1].Force-2.0*path[i].Force+path[i-1].Force);
-//    g3rd=+0.5*params.invdt*path[i].Hessian*(path[i+1].pos-2.0*path[i].pos+path[i-1].pos);
-//    path[i].dg=params.deltatau*(g1st+g2nd+g3rd);
-//  }
 }
 
 // ==================================================================================
@@ -202,7 +194,48 @@ void calcPhi(averages* path, parameters params){
 
 // ==================================================================================
 double calcEnergyChange(averages* path0, averages* path1, parameters params){
-  return(0.0);
+  int i;
+  //temp storage for the sum of Phi for path0
+  double Phi0=0.0;
+  //temp storage for the sum of Phi for path1
+  double Phi1=0.0;
+  // temp var for first term in notes
+  double temp1=0.0;
+  // temp var for second term in notes
+  double temp2=0.0;
+  // temp var for the inner term of the sum (Lx1-dg1+Lx0-dg0)
+  double temp2inner=0.0;
+
+  double invdt2=params.invdt*params.invdt;
+
+  // calculate the sum of Phi for each path
+  for(i=0;i<params.NumB-1;i++){
+    Phi0 += path0[i].Phi;
+    Phi1 += path1[i].Phi;
+  }
+
+  //calculate the first term in the notes and multiply by constant
+  for(i=1;i<params.NumB-1;i++){
+    temp1 += (path1[i].dg+path0[i].dg)*(path1[i].pos*path0[i].pos);
+  }
+  temp1 = 0.5*temp1;
+
+  //calculate the second term in the notes, first calcuating the inner 
+  //   term and then the entire term, and finally the constant multiply
+  for(i=1;i<params.NumB-1;i++){
+    //calculate the inner term of the sum
+    temp2inner  = invdt2*(path1[i+1].pos-2.0*path1[i].pos+path1[i-1].pos);
+    temp2inner += -path1[i].dg;
+    temp2inner += invdt2*(path0[i+1].pos-2.0*path0[i].pos+path0[i-1].pos);
+    temp2inner += -path0[i].dg;
+    // incrimenting the sum
+    temp2 += temp2inner*(path1[i].dg-path0[i].dg);
+  }
+  temp2 *= 0.25*params.deltatau;
+
+  //return the change in energy for a single step
+  return Phi1-Phi0-temp1-temp2;
+
 }
 
 
@@ -216,7 +249,7 @@ double calcEnergyChange(averages* path0, averages* path1, parameters params){
 //   output: new path1.pos  
 void GaussElim(averages* path0, averages* path1, parameters params){
 
-  int NumL = params.NumL;
+  int NumL = params.NumB-2;
   int i;
   double temp;
   
