@@ -13,15 +13,24 @@ import matplotlib.pyplot as plt
 # Argparse: command line options
 import argparse
 parser = argparse.ArgumentParser(description='New HMC algorithm (finite time step) for 1D external potential')
-parser.add_argument('-t','--test', help='run py.test unit tests', action="store_true")
-parser.add_argument('-i','--infile', type=str, default='inFile.dat', help='input path positions; default=inFile.dat')
-parser.add_argument('-o','--outfile', type=str, default='outFile.dat', help='output path positions; default=outFile.dat')
-parser.add_argument('-T','--temperature', type=float, default=0.15, help='configurational temperature; default=0.15')
-parser.add_argument('--deltat', type=float, default=0.001, help='time step along the path; default=0.005')
-parser.add_argument('--deltatau', type=float, default=0.0000000001, help='time step between paths; default=0.00001')
-parser.add_argument('--Num', type=int, default=100001, help='path length (number of beads); default=100001')
-parser.add_argument('--HMCloops', type=int, default=2, help='number of HMC loops (SDE+MD+MC); default=20')
-parser.add_argument('--MDloops', type=int, default=50, help='number of MD loops for each HMC loop; default=50')
+parser.add_argument('-t','--test', action="store_true",
+    help='run py.test unit tests')
+parser.add_argument('-i','--infile', type=str, default='inFile.dat', 
+    help='input path positions;           default=inFile.dat')
+parser.add_argument('-o','--outfile', type=str, default='outFile.dat', 
+    help='output path positions;          default=outFile.dat')
+parser.add_argument('-T','--temperature', type=float, default=0.15, 
+    help='configurational temperature;    default=0.15')
+parser.add_argument('--deltat', type=float, default=0.001, 
+    help='time step along the path;       default=0.001')
+parser.add_argument('--deltatau', type=float, default=10**(-11), 
+    help='time step between paths;        default=10**(-11)')
+parser.add_argument('--Num', type=int, default=100001, 
+    help='path length (num beads);        default=100001')
+parser.add_argument('--HMC', type=int, default=2, 
+    help='HMC loops (SDE+MD+MC);          default=2')
+parser.add_argument('--MD', type=int, default=100, 
+    help='MD steps per full HMC;          default=100')
 args = parser.parse_args()
 
 
@@ -77,6 +86,7 @@ clib.quadVar.restype = DOUBLE
 
 c_calcDeltae=clib.calcDeltae
 c_calcPhi=clib.calcPhi
+
 
 # ===============================================
 # constants/parameters
@@ -191,23 +201,34 @@ def rotatePaths():
     pathNew=temp
     del temp
 
-def FillAllStates():
-    global pathOld,pathCur,pathNew
-    c_calcForces(pathOld, params)
-    c_calcHessian(pathOld, params)
-    c_calcDeltae(pathOld, params)
-    c_calcPhi(pathOld, params)
-    c_calcdg(pathOld, params)
-    c_calcForces(pathCur, params)
-    c_calcHessian(pathCur, params)
-    c_calcDeltae(pathCur, params)
-    c_calcPhi(pathCur, params)
-    c_calcdg(pathCur, params)
-    c_calcForces(pathNew, params)
-    c_calcHessian(pathNew, params)
-    c_calcDeltae(pathNew, params)
-    c_calcPhi(pathNew, params)
-    c_calcdg(pathNew, params)
+def FillOldState():
+    global pathOld, params
+    c_calcForces(pathOld, params);
+    c_calcHessian(pathOld, params);
+    c_calcDeltae(pathOld, params);
+    c_calcPhi(pathOld, params);
+    c_calcdg(pathOld, params);
+
+def FillCurState():
+    global pathCur, params
+    c_calcForces(pathCur, params);
+    c_calcHessian(pathCur, params);
+    c_calcDeltae(pathCur, params);
+    c_calcPhi(pathCur, params);
+    c_calcdg(pathCur, params);
+
+def FillNewState():
+    global pathNew, params
+    c_calcForces(pathNew, params);
+    c_calcHessian(pathNew, params);
+    c_calcDeltae(pathNew, params);
+    c_calcPhi(pathNew, params);
+    c_calcdg(pathNew, params);
+
+def printState():
+    print "qv: %1.6f" % c_quadVar(pathCur,params),
+    print "\tDelta E: %1.6f" % Echange ,
+    print "\tExp(-dE/2/eps): %1.6f" % math.exp(-Echange/(2.0*eps))
 
 # ===============================================
 # Unit Tests
@@ -220,7 +241,7 @@ class TestClass:
     def test_setUp(self):
         print "starting the test suite"
         # dont run any HMC loops
-        args.HMCloops=0
+        args.HMC=0
         assert 1
 
     def test_example_test1(self):
@@ -299,7 +320,7 @@ for i in np.arange(0,len(inPath),1):
     pathCur[i].pos=inPath[i]
 
 
-for HMCIter in range(args.HMCloops):
+for HMCIter in range(args.HMC):
 
     # noise vector
     for i in np.arange(1,len(inPath)-1,1):
@@ -308,24 +329,24 @@ for HMCIter in range(args.HMCloops):
 
     # calculate the current state 
 
-    FillAllStates()
+    FillCurState()
 
+    # filled the entire path struct
     c_calcSPDErhs(pathCur, params)
-    # filled the entire pathOld struct
 
     # generates the pathCur positions
     c_GaussElim(pathCur,pathNew,params)
 
-    FillAllStates()
+    # calculate all of the struct arrays
+    FillNewState()
 
 
-    Echange=c_calcEnergyChange(pathCur,pathNew,params)
+    # reset the energy change accumulator at the beginning of the SPDE step
+    Echange=0.0
+    Echange+=c_calcEnergyChange(pathCur,pathNew,params)
 
 
-    if HMCIter != 0:
-        print "DELTA PHI: " + str( sum([pathCur[i].Phi - pathOld[i].Phi for i in range(NumB)] ) )
-        print " PHI100: " + str( pathCur[100].Phi )
-        #pTop=math.sqrt(params.deltatau/2.0) * ( (pathCur[i+1].pos-2.0*pathCur[i].pos+pathCur[i-1].pos) - pathCur[i].dg +(pathOld[i+1].pos-2.0*pathOld[i].pos+pathOld[i-1].pos) - pathOld[i].dg ) + params.noisePref*pathOld[i].randlist
+    #pTop=math.sqrt(params.deltatau/2.0) * ( (pathCur[i+1].pos-2.0*pathCur[i].pos+pathCur[i-1].pos) - pathCur[i].dg +(pathOld[i+1].pos-2.0*pathOld[i].pos+pathOld[i-1].pos) - pathOld[i].dg ) + params.noisePref*pathOld[i].randlist
 
              
 
@@ -333,32 +354,32 @@ for HMCIter in range(args.HMCloops):
 
 
     rotatePaths()
-    FillAllStates()
-    print "SPDE:   quadVar:" + str(c_quadVar(pathCur,params)) + "    Delta E:" + str(Echange)
+    print "======== SPDE =========="
+    printState()
     print "========================"
 
 
-    for MDIter in range(args.MDloops):
+    for MDIter in range(args.MD):
  
         # calculate the current state 
-        FillAllStates()
- 
         c_calcMDrhs(pathOld, pathCur, params)
-    #    printState(pathOld,pathCur,pathNew,1)
 
+        # generate the pathNew positions
         c_GaussElim(pathCur,pathNew,params)
-        # generates the pathNew positions
-        FillAllStates()
+
+        # calculate all of the struct arrays
+        FillNewState()
 
         Echange=c_calcEnergyChange(pathCur,pathNew,params)
 
  
-        rotatePaths()
-        FillAllStates()
-        if MDIter % 1 == 0:
-            print "quadVar:" + str(c_quadVar(pathCur,params)) + "    Delta E:" + str(Echange)
-            print "DELTA PHI: " + str( sum([pathCur[i].Phi - pathOld[i].Phi for i in range(NumB)] ) )
         # rotate the path structs
+        rotatePaths()
+
+        if MDIter % 10 == 0:
+            #print "quadVar:" + str(c_quadVar(pathCur,params)) + "\tDelta E:" + str(Echange) + "\tExp(DeltaE/2eps): " + str(math.exp(-Echange/(2.0*eps)))
+            printState()
+            
 
     #print "Start: "+str(pathCur[0].pos)+"     End: "+str(pathCur[-1].pos)
 #    plotPath(pathCur)

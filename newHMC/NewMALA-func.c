@@ -239,6 +239,7 @@ double calcEnergyChange(averages* path0, averages* path1, parameters params){
 }
 
 
+
 // ==================================================================================
 // Gaussian elimination for computing L.x=b where
 //   L is tridiagonal matrix
