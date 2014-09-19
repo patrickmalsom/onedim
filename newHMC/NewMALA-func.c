@@ -57,17 +57,20 @@ typedef struct _path
 
 double Pot(double x){
   // U(x): returns the potential at a position
-  return( 1.+ x*x*(-3.375+x * (1.6875 +x * (2.84766 +(-2.84766+0.711914 * x) * x))));
+  //return( 1.+ x*x*(-3.375+x * (1.6875 +x * (2.84766 +(-2.84766+0.711914 * x) * x))));
+  return (1. + x*x*(-3.375 + x*(1.6875 + x*(2.84765625 + (-2.84765625 + 0.7119140625*x)*x))));
 }
 
 double Force(double x) {
   // F(x)=-dU/dx: returns the force at a position
-  return (x * (6.75 + x * (-5.0625 + x * (-11.3906 + (14.2383 - 4.27148 * x) * x))));
+  //return (x * (6.75 + x * (-5.0625 + x * (-11.390625 + (14.23828125 - 4.271484375 * x) * x))));
+  return (0. + x*(6.75 + x*(-5.0625 + x*(-11.390625 + (14.23828125 - 4.271484375*x)*x))));
 }
 
 double Hessian(double x){
   // F'(x)=dF/dx: returns the force at a position
-  return -(6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x)));
+  //return -(6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x)));
+  return (-6.75 + x*(10.125 + x*(34.171875 + x*(-56.953125 + 21.357421875*x))));
 }
 
 
@@ -75,13 +78,12 @@ double Hessian(double x){
 void calcForces(averages* path, parameters params){
   // fill out the Force variables for the struce
   // initial params must have the positions filled
-  double x;
   int i;
 
+  #pragma omp parallel for
   for(i=0;i<params.NumB;i++){
-    x = path[i].pos;
-    //path[i].Force= (x * (6.75 + x * (-5.0625 + x * (-11.3906 + (14.2383 - 4.27148 * x) * x))));
-    path[i].Force= x*(6.75 + x*(-5.0625 + x*(-11.390625 + (14.23828125 - 4.271484375*x)*x)));
+    //path[i].Force= x*(6.75 + x*(-5.0625 + x*(-11.390625 + (14.23828125 - 4.271484375*x)*x)));
+    path[i].Force= Force(path[i].pos);
   }
 }
 
@@ -89,13 +91,13 @@ void calcForces(averages* path, parameters params){
 void calcHessian(averages* path, parameters params){
   // fill out the Hessian variables for the structure
   // initial params must have the positions filled
-  double x;
   int i;
 
+  #pragma omp parallel for
   for(i=0;i<params.NumB;i++){
-    x = path[i].pos;
     //path[i].Hessian= -(6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x)));
-    path[i].Hessian= -6.75 + x * (10.125 + x * (34.1719 + x * (-56.9531 + 21.3574 * x)));
+    //path[i].Hessian= -6.75 + x * (10.125 + x * (34.1719 + x * (-56.9531 + 21.3574 * x)));
+    path[i].Hessian= Hessian(path[i].pos);
   }
 }
 
@@ -103,6 +105,8 @@ void calcHessian(averages* path, parameters params){
 void calcDeltae(averages* path, parameters params){
   // find the change in energy for each point along the path
   int i;
+
+  #pragma omp parallel for
   for(i=0;i<params.NumB-1;i++){
     path[i].deltae = Pot(path[i+1].pos)-Pot(path[i].pos) + 0.5*(path[i+1].Force + path[i].Force)*(path[i+1].pos - path[i].pos) + params.deltat*0.25*( path[i+1].Force*path[i+1].Force - path[i].Force*path[i].Force);
   }
@@ -117,6 +121,7 @@ void calcdg(averages* path, parameters params){
 
   double dPlus;
   double dMinus;
+  #pragma omp parallel for private(dPlus,dMinus)
   for(i=1;i<params.NumB-1;i++){
     dPlus = (path[i+1].pos-path[i].pos)*params.invdt - path[i].Force;
     dMinus = (path[i].pos-path[i-1].pos)*params.invdt + path[i].Force;
@@ -145,6 +150,7 @@ void calcSPDErhs(averages* path, parameters params){
   int i;
   double temp1, temp2, temp3;
 
+  #pragma omp parallel for private(temp1,temp2,temp3)
   for(i=1;i<params.NumB-1;i++){
     temp1 = params.r*path[i-1].pos + (1.-2.*params.r)*path[i].pos + params.r*path[i+1].pos;
     temp2 = params.deltatau*path[i].dg;
@@ -161,6 +167,7 @@ void calcSPDErhs(averages* path, parameters params){
 void calcMDrhs(averages* path0, averages* path1, parameters params){
   int i;
   
+  #pragma omp parallel for
   for(i=1; i<params.NumB-1;i++){
 
     path1[i].rhs  = 2.0*(params.r*path1[i-1].pos + (1.0-2.0*params.r)*path1[i].pos + params.r*path1[i+1].pos);
@@ -183,12 +190,13 @@ void calcPhi(averages* path, parameters params){
   double F0;
   double F1;
 
+  #pragma omp parallel for private(F0,F1,Psi)
   for(i=0;i<params.NumB-1;i++){
     F0=path[i].Force;
     F1=path[i+1].Force;
     Psi=0.25*(F1*F1)+0.25*(F0*F0)+0.5*(F1-F0)*params.invdt*(path[i+1].pos-path[i].pos);
     
-    path[i].Phi=Psi+abs(path[i].deltae)*params.invdt;
+    path[i].Phi=Psi+fabs(path[i].deltae)*params.invdt;
   }
 }
 

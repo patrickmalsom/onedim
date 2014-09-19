@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python
 
 # MALA routine
 
@@ -8,7 +8,8 @@
 import numpy as np
 import math
 import sys
-import matplotlib.pyplot as plt
+import random
+#import matplotlib.pyplot as plt
 
 # Argparse: command line options
 import argparse
@@ -21,17 +22,21 @@ parser.add_argument('-o','--outfile', type=str, default='outFile.dat',
     help='output path positions;          default=outFile.dat')
 parser.add_argument('-T','--temperature', type=float, default=0.15, 
     help='configurational temperature;    default=0.15')
-parser.add_argument('--deltat', type=float, default=0.001, 
-    help='time step along the path;       default=0.001')
-parser.add_argument('--deltatau', type=float, default=10**(-11), 
-    help='time step between paths;        default=10**(-11)')
-parser.add_argument('--Num', type=int, default=100001, 
-    help='path length (num beads);        default=100001')
+parser.add_argument('--deltat', type=float, default=0.005, 
+    help='time step along the path;       default=0.005')
+parser.add_argument('--deltatau', type=float, default=10**(-7), 
+    help='time step between paths;        default=10**(-7)')
+parser.add_argument('--Num', type=int, default=10001, 
+    help='path length (num beads);        default=10001')
 parser.add_argument('--HMC', type=int, default=2, 
     help='HMC loops (SDE+MD+MC);          default=2')
-parser.add_argument('--MD', type=int, default=100, 
+parser.add_argument('--MD', type=int, default=150, 
     help='MD steps per full HMC;          default=100')
+parser.add_argument('--RNGseed', type=int, 
+    help='random number seed;             default=random')
 args = parser.parse_args()
+
+# numpy.random.seed(random.SystemRandom().randint(1,100000000000))
 
 
 # python profiler
@@ -225,10 +230,16 @@ def FillNewState():
     c_calcPhi(pathNew, params);
     c_calcdg(pathNew, params);
 
+def saveStartingState(pathSave):
+    global pathCur
+    for i in range(NumB):
+        pathSave[i]=pathCur[i].pos
+
+
 def printState():
     print "qv: %1.6f" % c_quadVar(pathCur,params),
     print "\tDelta E: %1.6f" % Echange ,
-    print "\tExp(-dE/2/eps): %1.6f" % math.exp(-Echange/(2.0*eps))
+    print "\tExp(-dE*dt/2/eps): %1.6f" % math.exp(-Echange*deltat/(2.0*eps))
 
 # ===============================================
 # Unit Tests
@@ -288,7 +299,11 @@ class TestClass:
 # ===============================================
 # MAIN loop
 
-np.random.seed(101)
+if args.RNGseed is None:
+  args.RNGseed = random.SystemRandom().randint(1,1000000)
+
+np.random.seed(args.RNGseed)
+print "RNG seed: %d" % args.RNGseed
 
 inPath=np.loadtxt(args.infile)
 
@@ -309,8 +324,14 @@ pathCur=pathType()
 pathNew=pathType()
 
 
-# testing temporary array
+# output storage space
 outPath=np.array([0.0 for i in np.arange(0,len(inPath),1)])
+# save path (for rejection) storage space
+savePath=np.array([0.0 for i in np.arange(0,len(inPath),1)])
+
+# zero the acc/rej counters
+acc=0
+rej=0
 
 ## start the profiler
 #pr = cProfile.Profile()
@@ -322,10 +343,15 @@ for i in np.arange(0,len(inPath),1):
 
 for HMCIter in range(args.HMC):
 
+    # save the current path to savePath in case of rejection
+    for i in range(NumB):
+        savePath[i]=pathCur[i].pos
+
     # noise vector
     for i in np.arange(1,len(inPath)-1,1):
         pathCur[i].randlist=np.random.normal(0,1)
     #printState(pathOld,pathCur,pathNew,1)
+    randnumtemplist=[pathCur[i].randlist for i in range(NumB)]
 
     # calculate the current state 
 
@@ -339,7 +365,6 @@ for HMCIter in range(args.HMC):
 
     # calculate all of the struct arrays
     FillNewState()
-
 
     # reset the energy change accumulator at the beginning of the SPDE step
     Echange=0.0
@@ -377,12 +402,26 @@ for HMCIter in range(args.HMC):
         rotatePaths()
 
         if MDIter % 10 == 0:
-            #print "quadVar:" + str(c_quadVar(pathCur,params)) + "\tDelta E:" + str(Echange) + "\tExp(DeltaE/2eps): " + str(math.exp(-Echange/(2.0*eps)))
             printState()
-            
 
-    #print "Start: "+str(pathCur[0].pos)+"     End: "+str(pathCur[-1].pos)
-#    plotPath(pathCur)
+
+    # Metropolis Hasitings Step
+
+    if math.exp(-Echange*deltat/(2.0*eps)) > np.random.random():
+        # accept
+        acc+=1
+    else:
+        rej+=1
+        for i in range(NumB):
+            pathCur[i].pos=savePath[i]
+
+    print "acc: %d   rej: %d" % (acc,rej)
+
+
+
+
+
+
 
 
 #dgTemp=[pathOld[i].dg for i in range(NumB)]
