@@ -1,17 +1,32 @@
 CC=gcc
-CFLAGS=-Wall -Warray-bounds -fPIC -I/opt/local/include  -march=native -O2
-LFLAGS=-shared -L/opt/local/lib  -lm -lgsl -lgslcblas -Wl,-install_name,NewMALA-func.so
-#CFLAGS=-Wall -Warray-bounds -fPIC -fopenmp -march=native -O2
-#LFLAGS=-shared -fopenmp -lm -lgsl -lgslcblas -Wl,-soname,NewMALA-func.so
 
-all: NewMALA-func
+# Name of the code to be compiled
+CODENAME=NewMALA-func
 
-NewMALA-func.o: NewMALA-func.c
-	${CC} ${CFLAGS} ${EXTFLAGS} -c NewMALA-func.c
+SOURCE=$(CODENAME).c
+OBJECT=$(CODENAME).o
+SHAREDLIB=$(CODENAME).so
 
-NewMALA-func: NewMALA-func.o 
-	${CC} ${LFLAGS} -o NewMALA-func.so NewMALA-func.o
- 
-clean: 
-	rm -f NewMALA-func.so NewMALA-func.o
+UNAME := $(shell uname)
 
+ifeq ($(UNAME), Linux) # linux build flags
+CFLAGS=-Wall -Warray-bounds -fPIC -fopenmp -march=native -O2 -g
+LFLAGS=-fopenmp -lm
+INCLUDEDIRS= -I/usr/include
+LIBDIRS= -L/usr/lib64
+endif
+
+ifeq ($(UNAME), Darwin) # mac build flags
+CFLAGS=-Wall -Warray-bounds -fPIC -g
+LFLAGS=-lm -Wl,-install_name,$(CODENAME).so
+INCLUDEDIRS= -I/opt/local/include
+LIBDIRS= -L/opt/local/lib
+endif
+
+all: $(CODENAME)
+
+$(OBJECT): $(SOURCE) ; $(CC) $(INCLUDEDIRS) $(CFLAGS) -c $(SOURCE)
+
+$(CODENAME): $(OBJECT) ; $(CC) -shared $(LIBDIRS) $(LFLAGS) -o $(SHAREDLIB) $(OBJECT) 
+
+clean: ; rm -f $(OBJECT) $(SHAREDLIB)
