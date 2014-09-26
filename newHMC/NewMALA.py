@@ -9,7 +9,7 @@ import numpy as np
 import math
 import sys
 import random
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 # Argparse: command line options
 import argparse
@@ -35,6 +35,7 @@ parser.add_argument('--MD', type=int, default=150,
 parser.add_argument('--RNGseed', type=int, 
     help='random number seed;             default=random')
 args = parser.parse_args()
+
 
 # numpy.random.seed(random.SystemRandom().randint(1,100000000000))
 
@@ -143,20 +144,20 @@ pathType=Averages*NumB
 # ===============================================
 # Function declarations
 # ===============================================
-def Pot(x):
-    return 1.+ x*x*(-3.375+x * (1.6875 +x * (2.84766 +(-2.84766+0.711914 * x) * x)))
+#def Pot(x):
+#    return 1.+ x*x*(-3.375+x * (1.6875 +x * (2.84766 +(-2.84766+0.711914 * x) * x)))
 
-def Force(x):
-    return x * (6.75 + x * (-5.0625 + x * (-11.3906 + (14.2383 - 4.27148 * x) * x)))
+#def Force(x):
+#    return x * (6.75 + x * (-5.0625 + x * (-11.3906 + (14.2383 - 4.27148 * x) * x)))
 
-def ForcePrime(x):
-    return 6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x))
+#def ForcePrime(x):
+#    return 6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x))
 
-def g(xm1,x0,x1):
-    g1st=ForcePrime(x0)*Force((x0))
-    g2nd=-0.5*invdt*(Force((x1))-2.0*Force((x0))+Force((xm1)))
-    g3rd=-0.5*invdt*ForcePrime(x0)*(x1-2.0*x0+xm1)
-    return g1st+g2nd+g3rd
+#def g(xm1,x0,x1):
+#    g1st=ForcePrime(x0)*Force((x0))
+#    g2nd=-0.5*invdt*(Force((x1))-2.0*Force((x0))+Force((xm1)))
+#    g3rd=-0.5*invdt*ForcePrime(x0)*(x1-2.0*x0+xm1)
+#    return g1st+g2nd+g3rd
 
 def GaussElim(r,bVec):
     # Gaussian elimination for computing L.x=b where
@@ -241,6 +242,22 @@ def printState():
     print "\tDelta E: %1.6f" % Echange ,
     print "\tExp(-dE*dt/2/eps): %1.6f" % math.exp(-Echange*deltat/(2.0*eps))
 
+def printParams():
+    print '------------------------------------------------'
+    print 'New HMC algorithm (finite time step) for 1D external potential'
+    print 'configurational temperature=%f' % eps
+    print 'delta t=%e' % args.deltat
+    print 'delta tau=%e' % args.deltatau
+    print 'path length=%d' % NumB
+    print 'HMC loops=%d' % args.HMC
+    print 'MD loops=%d' % args.MD
+    print "RNG seed: %d" % args.RNGseed
+    print '------------------------------------------------'
+
+def writeCurPath(fileName):
+    global pathCur
+    np.savetxt(fileName,np.array([pathCur[i].pos for i in range(NumB)]))
+
 # ===============================================
 # Unit Tests
 # ===============================================
@@ -303,7 +320,6 @@ if args.RNGseed is None:
   args.RNGseed = random.SystemRandom().randint(1,1000000)
 
 np.random.seed(args.RNGseed)
-print "RNG seed: %d" % args.RNGseed
 
 inPath=np.loadtxt(args.infile)
 
@@ -333,9 +349,13 @@ savePath=np.array([0.0 for i in np.arange(0,len(inPath),1)])
 acc=0
 rej=0
 
+plotiter=100000
+
 ## start the profiler
 #pr = cProfile.Profile()
 #pr.enable()
+
+printParams()
 
 for i in np.arange(0,len(inPath),1):
     pathCur[i].pos=inPath[i]
@@ -384,7 +404,7 @@ for HMCIter in range(args.HMC):
     print "========================"
 
 
-    for MDIter in range(args.MD):
+    for MDIter in range( max(1,int(args.MD*(0.5 + np.random.random()))) ):
  
         # calculate the current state 
         c_calcMDrhs(pathOld, pathCur, params)
@@ -395,7 +415,7 @@ for HMCIter in range(args.HMC):
         # calculate all of the struct arrays
         FillNewState()
 
-        Echange=c_calcEnergyChange(pathCur,pathNew,params)
+        Echange+=c_calcEnergyChange(pathCur,pathNew,params)
 
  
         # rotate the path structs
@@ -410,12 +430,27 @@ for HMCIter in range(args.HMC):
     if math.exp(-Echange*deltat/(2.0*eps)) > np.random.random():
         # accept
         acc+=1
+        posBasin=0
+        for i in xrange(NumB):
+            if pathCur[i].pos > 0:
+                posBasin+=1
+        print "posBasin: %i" % (posBasin)
     else:
         rej+=1
         for i in range(NumB):
             pathCur[i].pos=savePath[i]
 
     print "acc: %d   rej: %d" % (acc,rej)
+
+
+
+    if HMCIter % 10 == 0:
+        # write/plot the path and save to file
+        writeCurPath("testPath"+str(HMCIter)+".dat")
+        plt.plot([pathCur[i].pos for i in range(NumB)])
+        plt.savefig('testplot'+str(plotiter)+'.png')
+        plt.close()
+        plotiter+=1
 
 
 
