@@ -66,20 +66,17 @@ clib=ctypes.CDLL("NewMALA-func.so")
 # library functions
 #c_Pot=clib.Pot
 #clib.Pot.restype = DOUBLE
-
+c_calcPosBar=clib.calcPosBar
+c_calcPot=clib.calcPot
 c_calcForces=clib.calcForces
-# fill out the Force variables for the struce
-
-c_calcHessian=clib.calcHessian
-# fill out the Hessian variables for the struce
-
+c_calcForcesBar=clib.calcForcesBar
+c_calcForcesPrimeBar=clib.calcForcesPrimeBar
+c_calcForcesDoublePrimeBar=clib.calcForcesDoublePrimeBar
+c_calcDeltae=clib.calcDeltae
 c_calcdg=clib.calcdg
-# calculate dG/dx for the structure
-
 c_calcSPDErhs=clib.calcSPDErhs
 c_calcMDrhs=clib.calcMDrhs
-# calculate the right hand side vector for the SPDE
-
+c_calcPhi=clib.calcPhi
 
 c_GaussElim=clib.GaussElim
 # Gaussian elimination for computing L.x=b where L is the second deriv matrix
@@ -89,9 +86,6 @@ clib.calcEnergyChange.restype = DOUBLE
 
 c_quadVar=clib.quadVar
 clib.quadVar.restype = DOUBLE
-
-c_calcDeltae=clib.calcDeltae
-c_calcPhi=clib.calcPhi
 
 
 # ===============================================
@@ -129,9 +123,13 @@ paramType=Parameters
 # this structs pointer will be passed between C and Python code
 class Averages(ctypes.Structure):
   _fields_ = [('pos', DOUBLE),
+              ('posBar', DOUBLE),
               ('randlist', DOUBLE),
-              ('Force', DOUBLE),
-              ('Hessian', DOUBLE),
+              ('U', DOUBLE),
+              ('F', DOUBLE),
+              ('Fbar', DOUBLE),
+              ('Fpbar', DOUBLE),
+              ('Fppbar', DOUBLE),
               ('deltae', DOUBLE),
               ('dg', DOUBLE),
               ('Phi', DOUBLE),
@@ -209,27 +207,39 @@ def rotatePaths():
 
 def FillOldState():
     global pathOld, params
+    c_calcPosBar(pathOld, params);
+    c_calcPot(pathOld, params);
     c_calcForces(pathOld, params);
-    c_calcHessian(pathOld, params);
+    c_calcForcesBar(pathOld, params);
+    c_calcForcesPrimeBar(pathOld, params);
+    c_calcForcesDoublePrimeBar(pathOld, params);
     c_calcDeltae(pathOld, params);
-    c_calcPhi(pathOld, params);
     c_calcdg(pathOld, params);
+    c_calcPhi(pathOld, params);
 
 def FillCurState():
     global pathCur, params
+    c_calcPosBar(pathCur, params);
+    c_calcPot(pathCur, params);
     c_calcForces(pathCur, params);
-    c_calcHessian(pathCur, params);
+    c_calcForcesBar(pathCur, params);
+    c_calcForcesPrimeBar(pathCur, params);
+    c_calcForcesDoublePrimeBar(pathCur, params);
     c_calcDeltae(pathCur, params);
-    c_calcPhi(pathCur, params);
     c_calcdg(pathCur, params);
+    c_calcPhi(pathCur, params);
 
 def FillNewState():
     global pathNew, params
+    c_calcPosBar(pathNew, params);
+    c_calcPot(pathNew, params);
     c_calcForces(pathNew, params);
-    c_calcHessian(pathNew, params);
+    c_calcForcesBar(pathNew, params);
+    c_calcForcesPrimeBar(pathNew, params);
+    c_calcForcesDoublePrimeBar(pathNew, params);
     c_calcDeltae(pathNew, params);
-    c_calcPhi(pathNew, params);
     c_calcdg(pathNew, params);
+    c_calcPhi(pathNew, params);
 
 def saveStartingState(pathSave):
     global pathCur

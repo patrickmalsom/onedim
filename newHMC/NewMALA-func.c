@@ -42,9 +42,13 @@ typedef struct _parameters
 typedef struct _path
 {
   double pos;
+  double posBar;
   double randlist;
-  double Force;
-  double Hessian;
+  double U;
+  double F;
+  double Fbar;
+  double Fpbar;
+  double Fppbar;
   double deltae;
   double dg;
   double Phi;
@@ -55,62 +59,89 @@ typedef struct _path
 // Functions
 // ==================================================================================
 
-//// ==================================================================================
-////fat skinny
-//double Pot(double x){
-//  // U(x): returns the potential at a position
-//  return (1. + x*x*(-3.375 + x*(1.6875 + x*(2.84765625 + (-2.84765625 + 0.7119140625*x)*x))));
-//}
-//double Force(double x) {
-//  // F(x)=-dU/dx: returns the force at a position
-//  return (0. + x*(6.75 + x*(-5.0625 + x*(-11.390625 + (14.23828125 - 4.271484375*x)*x))));
-//}
-//double Hessian(double x){
-//  // F'(x)=dF/dx: returns the force at a position
-//  return (-6.75 + x*(10.125 + x*(34.171875 + x*(-56.953125 + 21.357421875*x))));
-//}
-//// ==================================================================================
-
 // ==================================================================================
-// double quadratic spline
+//fat skinny
 double Pot(double x){
   // U(x): returns the potential at a position
-  if(x<-0.3221744234888432){
-    return 1.7724051019087494 + x*(6.1648873109869555 + 5.360771574771266*x);
-  }
-  else if(x<0.1605538207017589){
-    return 1. + x*x*(-7.395710880476022 + x*(6.600785187220504 + 30.72730601003735*x));
-  }
-  else{
-    return 1.0885716779019903 + (-1.5278198988098108 + 0.5360771574771266*x)*x;
-  }
+  return 1. + x*x*(-3.375 + x*(1.6875 + x*(2.84765625 + (-2.84765625 + 0.7119140625*x)*x)));
 }
 double Force(double x) {
   // F(x)=-dU/dx: returns the force at a position
-  if(x<-0.3221744234888432){
-    return -6.1648873109869555 - 10.721543149542532*x;
-  }
-  else if(x<0.1605538207017589){
-    return x*(14.791421760952044 + (-19.802355561661514 - 122.9092240401494*x)*x);
-  }
-  else{
-    return 1.5278198988098108 - 1.0721543149542532*x;
-  }
+  return x*(6.75 + x*(-5.0625 + x*(-11.390625 + (14.23828125 - 4.271484375*x)*x)));
 }
-double Hessian(double x){
+double ForcePrime(double x){
   // F'(x)=dF/dx: returns the force at a position
-  if(x<-0.3221744234888432){
-    return 10.721543149542532;
-  }
-  else if(x<0.1605538207017589){
-    return -14.791421760952044 + x*(39.60471112332303 + 368.7276721204482*x);
-  }
-  else{
-    return 1.0721543149542532;
-  }
+  return 6.75 + x*(-10.125 + x*(-34.171875 + (56.953125 - 21.357421875*x)*x));
+}
+double ForceDoublePrime(double x){
+  // F'(x)=dF/dx: returns the force at a position
+  return -10.125 + x*(-68.34375 + (170.859375 - 85.4296875*x)*x);
 }
 // ==================================================================================
 
+//// ==================================================================================
+//// double quadratic spline
+//double Pot(double x){
+//  // U(x): returns the potential at a position
+//  if(x<-0.3221744234888432){
+//    return 1.7724051019087494 + x*(6.1648873109869555 + 5.360771574771266*x);
+//  }
+//  else if(x<0.1605538207017589){
+//    return 1. + x*x*(-7.395710880476022 + x*(6.600785187220504 + 30.72730601003735*x));
+//  }
+//  else{
+//    return 1.0885716779019903 + (-1.5278198988098108 + 0.5360771574771266*x)*x;
+//  }
+//}
+//double Force(double x) {
+//  // F(x)=-dU/dx: returns the force at a position
+//  if(x<-0.3221744234888432){
+//    return -6.1648873109869555 - 10.721543149542532*x;
+//  }
+//  else if(x<0.1605538207017589){
+//    return x*(14.791421760952044 + (-19.802355561661514 - 122.9092240401494*x)*x);
+//  }
+//  else{
+//    return 1.5278198988098108 - 1.0721543149542532*x;
+//  }
+//}
+//double Hessian(double x){
+//  // F'(x)=dF/dx: returns the force at a position
+//  if(x<-0.3221744234888432){
+//    return 10.721543149542532;
+//  }
+//  else if(x<0.1605538207017589){
+//    return -14.791421760952044 + x*(39.60471112332303 + 368.7276721204482*x);
+//  }
+//  else{
+//    return 1.0721543149542532;
+//  }
+//}
+//// ==================================================================================
+
+// ==================================================================================
+void calcPosBar(averages* path, parameters params){
+  // fill out the Potential variables for the struce
+  // initial params must have the positions filled
+  int i;
+
+  #pragma omp parallel for
+  for(i=0;i<params.NumB-1;i++){
+    path[i].posBar = (path[i].pos+path[i+1].pos)*0.5;
+  }
+}
+
+// ==================================================================================
+void calcPot(averages* path, parameters params){
+  // fill out the Potential variables for the struce
+  // initial params must have the positions filled
+  int i;
+
+  #pragma omp parallel for
+  for(i=0;i<params.NumB;i++){
+    path[i].U = Pot(path[i].pos);
+  }
+}
 
 // ==================================================================================
 void calcForces(averages* path, parameters params){
@@ -120,22 +151,34 @@ void calcForces(averages* path, parameters params){
 
   #pragma omp parallel for
   for(i=0;i<params.NumB;i++){
-    //path[i].Force= x*(6.75 + x*(-5.0625 + x*(-11.390625 + (14.23828125 - 4.271484375*x)*x)));
-    path[i].Force= Force(path[i].pos);
+    path[i].F = Force(path[i].pos);
   }
 }
 
 // ==================================================================================
-void calcHessian(averages* path, parameters params){
-  // fill out the Hessian variables for the structure
-  // initial params must have the positions filled
+void calcForcesBar(averages* path, parameters params){
   int i;
-
   #pragma omp parallel for
   for(i=0;i<params.NumB;i++){
-    //path[i].Hessian= -(6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x)));
-    //path[i].Hessian= -6.75 + x * (10.125 + x * (34.1719 + x * (-56.9531 + 21.3574 * x)));
-    path[i].Hessian= Hessian(path[i].pos);
+    path[i].Fbar = Force(path[i].posBar);
+  }
+}
+
+// ==================================================================================
+void calcForcesPrimeBar(averages* path, parameters params){
+  int i;
+  #pragma omp parallel for
+  for(i=0;i<params.NumB;i++){
+    path[i].Fpbar = ForcePrime(path[i].posBar);
+  }
+}
+
+// ==================================================================================
+void calcForcesDoublePrimeBar(averages* path, parameters params){
+  int i;
+  #pragma omp parallel for
+  for(i=0;i<params.NumB;i++){
+    path[i].Fppbar = ForceDoublePrime(path[i].posBar);
   }
 }
 
@@ -146,7 +189,7 @@ void calcDeltae(averages* path, parameters params){
 
   #pragma omp parallel for
   for(i=0;i<params.NumB-1;i++){
-    path[i].deltae = Pot(path[i+1].pos)-Pot(path[i].pos) + 0.5*(path[i+1].Force + path[i].Force)*(path[i+1].pos - path[i].pos) + params.deltat*0.25*( path[i+1].Force*path[i+1].Force - path[i].Force*path[i].Force);
+    path[i].deltae = path[i+1].U - path[i].U + path[i].Fbar*(path[i+1].pos -path[i].pos);
   }
 }
 
@@ -157,18 +200,12 @@ void calcdg(averages* path, parameters params){
   // intial positions/force/Hessian must be filled
   int i;
 
-  double dPlus;
-  double dMinus;
-  #pragma omp parallel for private(dPlus,dMinus)
+  #pragma omp parallel for
   for(i=1;i<params.NumB-1;i++){
-    dPlus = (path[i+1].pos-path[i].pos)*params.invdt - path[i].Force;
-    dMinus = (path[i].pos-path[i-1].pos)*params.invdt + path[i].Force;
-
-    path[i].dg  = (2.0*path[i].Force - path[i-1].Force - path[i+1].Force)*params.invdt;
-    path[i].dg += path[i].Hessian*(dPlus-dMinus);
-    path[i].dg += copysign(1.0,path[i].deltae) * ((path[i].Force - path[i+1].Force)*params.invdt - path[i].Hessian*dPlus);
-    path[i].dg += copysign(1.0,path[i-1].deltae) * ((path[i-1].Force - path[i].Force)*params.invdt - path[i].Hessian*dMinus);
-    path[i].dg *=0.5;
+    path[i].dg  = 0.5 *(path[i].Fbar *path[i].Fpbar + params.eps * path[i].Fppbar /(1.0 - 0.5* params.deltat * path[i].Fpbar));
+    path[i].dg += 0.5 *(path[i-1].Fbar *path[i-1].Fpbar + params.eps * path[i-1].Fppbar /(1.0 - 0.5* params.deltat * path[i-1].Fpbar));
+    path[i].dg += copysign(1.0,path[i].deltae) * params.invdt *(path[i].F - path[i].Fbar + 0.5 * path[i].Fpbar*(path[i+1].pos - path[i].pos) );
+    path[i].dg += copysign(1.0,path[i-1].deltae) * params.invdt *(-path[i].F + path[i-1].Fbar + 0.5 * path[i-1].Fpbar*(path[i].pos - path[i-1].pos) );
   }
 
   // boundaries are set to zero
@@ -225,16 +262,12 @@ void calcPhi(averages* path, parameters params){
   int i;
 
   double Psi;
-  double F0;
-  double F1;
 
-  #pragma omp parallel for private(F0,F1,Psi)
+  #pragma omp parallel for private(Psi)
   for(i=0;i<params.NumB-1;i++){
-    F0=path[i].Force;
-    F1=path[i+1].Force;
-    Psi=0.25*(F1*F1)+0.25*(F0*F0)+0.5*(F1-F0)*params.invdt*(path[i+1].pos-path[i].pos);
+    Psi = 0.5*path[i].Fbar*path[i].Fbar - 2.0 * params.eps * params.invdt * log(1.0 - params.deltat*0.5*path[i].Fpbar);
+    path[i].Phi = Psi + fabs(path[i].deltae)*params.invdt;
     
-    path[i].Phi=Psi+fabs(path[i].deltae)*params.invdt;
   }
 }
 
