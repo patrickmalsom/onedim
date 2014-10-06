@@ -9,6 +9,8 @@ import numpy as np
 import math
 import sys
 import random
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 # Argparse: command line options
@@ -24,14 +26,14 @@ parser.add_argument('-T','--temperature', type=float, default=0.15,
     help='configurational temperature;    default=0.15')
 parser.add_argument('--deltat', type=float, default=0.005, 
     help='time step along the path;       default=0.005')
-parser.add_argument('--deltatau', type=float, default=10**(-7), 
-    help='time step between paths;        default=10**(-7)')
+parser.add_argument('--deltatau', type=float, default=10**(-5), 
+    help='time step between paths;        default=10**(-5)')
 parser.add_argument('--Num', type=int, default=10001, 
     help='path length (num beads);        default=10001')
 parser.add_argument('--HMC', type=int, default=2, 
     help='HMC loops (SDE+MD+MC);          default=2')
 parser.add_argument('--MD', type=int, default=150, 
-    help='MD steps per full HMC;          default=100')
+    help='MD steps per full HMC;          default=150')
 parser.add_argument('--RNGseed', type=int, 
     help='random number seed;             default=random')
 args = parser.parse_args()
@@ -268,6 +270,24 @@ def writeCurPath(fileName):
     global pathCur
     np.savetxt(fileName,np.array([pathCur[i].pos for i in range(NumB)]))
 
+def makeHistogram(path,pltname):
+
+    #calculate the partition function for use in the plots
+    expPot = lambda x: math.exp(-(((3.*x+2.)**2 * (3.*x-4.)**4)/1024.)/0.15)
+    Z0=1.1229622054
+    ### mathematica code to find partition function normalization
+    #NIntegrate[Exp[-((3 x + 2)^2 * (3 x - 4)^4/1024)/0.15], {x, -100, 100}]
+
+    HistData=[0 for i in range(400)]
+    for i in range(len(path)):
+        HistData[int((path[i]+1.5)*100)]+=1
+
+    invPathLen=1.0/(len(path)*0.005)
+    plt.plot([i for i in np.linspace(-1.5,2.5,400)],[expPot(i)/Z0 for i in np.linspace(-1.5,2.5,400)])
+    plt.plot([i for i in np.linspace(-1.5,2.5,400)],np.array(HistData)*invPathLen)
+    plt.savefig('Histplot'+pltname+'.png')
+    plt.close()
+
 # ===============================================
 # Unit Tests
 # ===============================================
@@ -460,6 +480,7 @@ for HMCIter in range(args.HMC):
         plt.plot([pathCur[i].pos for i in range(NumB)])
         plt.savefig('testplot'+str(plotiter)+'.png')
         plt.close()
+        makeHistogram([pathCur[i].pos for i in range(NumB)],str(plotiter))
         plotiter+=1
 
 
