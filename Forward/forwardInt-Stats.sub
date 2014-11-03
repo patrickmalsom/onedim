@@ -1,0 +1,216 @@
+universe = vanilla
+
+executable = forwardInt-Stats.py
+
+output = log/forwardIntStats-$(Cluster)-$(Process).out
+error = log/forwardIntStats-$(Cluster)-$(Process).err
+log = log/forwardIntStats-$(Cluster)-$(Process).log
+
+runTime=2000
+
+#Arguments = LeapFrog  0.15  0.0001   $(runTime)
+#queue 300
+#Arguments = LeapFrog  0.15  0.00025  $(runTime)
+#queue 100
+#Arguments = LeapFrog  0.15  0.0005   $(runTime)
+#queue 60
+#Arguments = LeapFrog  0.15  0.00075  $(runTime)
+#queue 60
+#Arguments = LeapFrog  0.15  0.001    $(runTime)
+#queue 30
+#Arguments = LeapFrog  0.15  0.002    $(runTime)
+#queue 30
+#Arguments = LeapFrog  0.15  0.003    $(runTime)
+#queue 20
+#Arguments = LeapFrog  0.15  0.004    $(runTime)
+#queue 10
+Arguments = LeapFrog  0.15  0.005    $(runTime)
+queue 10
+Arguments = LeapFrog  0.15  0.006    $(runTime)
+queue 8
+Arguments = LeapFrog  0.15  0.007    $(runTime)
+queue 8
+Arguments = LeapFrog  0.15  0.008    $(runTime)
+queue 8 
+Arguments = LeapFrog  0.15  0.009    $(runTime)
+queue 5
+Arguments = LeapFrog  0.15  0.010    $(runTime)
+queue 5
+Arguments = LeapFrog  0.15  0.011    $(runTime)
+queue 5
+Arguments = LeapFrog  0.15  0.012    $(runTime)
+queue 3
+Arguments = LeapFrog  0.15  0.013    $(runTime)
+queue 3
+Arguments = LeapFrog  0.15  0.014    $(runTime)
+queue 3
+Arguments = LeapFrog  0.15  0.015    $(runTime)
+queue 3
+Arguments = LeapFrog  0.15  0.016    $(runTime)
+queue 3
+Arguments = LeapFrog  0.15  0.017    $(runTime)
+queue 3
+Arguments = LeapFrog  0.15  0.018    $(runTime)
+queue 3
+Arguments = LeapFrog  0.15  0.019    $(runTime)
+queue 3
+Arguments = LeapFrog  0.15  0.020    $(runTime)
+queue 3
+Arguments = LeapFrog  0.15  0.021    $(runTime)
+queue 3
+Arguments = LeapFrog  0.15  0.022    $(runTime)
+queue 3
+Arguments = LeapFrog  0.15  0.023    $(runTime)
+queue 3
+Arguments = LeapFrog  0.15  0.024    $(runTime)
+queue 2
+Arguments = LeapFrog  0.15  0.025    $(runTime)
+queue 2
+Arguments = LeapFrog  0.15  0.026    $(runTime)
+queue 2
+Arguments = LeapFrog  0.15  0.027    $(runTime)
+queue 2
+Arguments = LeapFrog  0.15  0.028    $(runTime)
+queue 2
+Arguments = LeapFrog  0.15  0.029    $(runTime)
+queue 2
+Arguments = LeapFrog  0.15  0.030    $(runTime)
+queue 2
+
+#Arguments = MidPt     0.15  0.0001   $(runTime)
+#queue 500
+#Arguments = MidPt     0.15  0.00025  $(runTime)
+#queue 200
+#Arguments = MidPt     0.15  0.0005   $(runTime)
+#queue 100
+#Arguments = MidPt     0.15  0.00075  $(runTime)
+#queue 80
+#Arguments = MidPt     0.15  0.001    $(runTime)
+#queue 50
+#Arguments = MidPt     0.15  0.002    $(runTime)
+#queue 50
+#Arguments = MidPt     0.15  0.003    $(runTime)
+#queue 30
+#Arguments = MidPt     0.15  0.004    $(runTime)
+#queue 20
+Arguments = MidPt     0.15  0.005    $(runTime)
+queue 15
+Arguments = MidPt     0.15  0.006    $(runTime)
+queue 10
+Arguments = MidPt     0.15  0.007    $(runTime)
+queue 10
+Arguments = MidPt     0.15  0.008    $(runTime)
+queue 10
+Arguments = MidPt     0.15  0.009    $(runTime)
+queue 10
+Arguments = MidPt     0.15  0.010    $(runTime)
+queue 10
+Arguments = MidPt     0.15  0.011    $(runTime)
+queue 10
+Arguments = MidPt     0.15  0.012    $(runTime)
+queue 10
+Arguments = MidPt     0.15  0.013    $(runTime)
+queue 7
+Arguments = MidPt     0.15  0.014    $(runTime)
+queue 7
+Arguments = MidPt     0.15  0.015    $(runTime)
+queue 7
+Arguments = MidPt     0.15  0.016    $(runTime)
+queue 5
+Arguments = MidPt     0.15  0.017    $(runTime)
+queue 5
+Arguments = MidPt     0.15  0.018    $(runTime)
+queue 5
+Arguments = MidPt     0.15  0.019    $(runTime)
+queue 3
+Arguments = MidPt     0.15  0.020    $(runTime)
+queue 3
+Arguments = MidPt     0.15  0.021    $(runTime)
+queue 3
+Arguments = MidPt     0.15  0.022    $(runTime)
+queue 3
+Arguments = MidPt     0.15  0.023    $(runTime)
+queue 3
+Arguments = MidPt     0.15  0.024    $(runTime)
+queue 2
+Arguments = MidPt     0.15  0.025    $(runTime)
+queue 2
+Arguments = MidPt     0.15  0.026    $(runTime)
+queue 2
+Arguments = MidPt     0.15  0.027    $(runTime)
+queue 2
+Arguments = MidPt     0.15  0.028    $(runTime)
+queue 2
+Arguments = MidPt     0.15  0.029    $(runTime)
+queue 2
+Arguments = MidPt     0.15  0.030    $(runTime)
+queue 2
+
+#Arguments = Simpson   0.15  0.0001   $(runTime)
+#queue 800
+#Arguments = Simpson   0.15  0.00025  $(runTime)
+#queue 300
+#Arguments = Simpson   0.15  0.0005   $(runTime)
+#queue 200
+#Arguments = Simpson   0.15  0.00075  $(runTime)
+#queue 100
+#Arguments = Simpson   0.15  0.001    $(runTime)
+#queue 80
+#Arguments = Simpson   0.15  0.002    $(runTime)
+#queue 80
+#Arguments = Simpson   0.15  0.003    $(runTime)
+#queue 50
+#Arguments = Simpson   0.15  0.004    $(runTime)
+#queue 50
+Arguments = Simpson   0.15  0.005    $(runTime)
+queue 30
+Arguments = Simpson   0.15  0.006    $(runTime)
+queue 30
+Arguments = Simpson   0.15  0.007    $(runTime)
+queue 20
+Arguments = Simpson   0.15  0.008    $(runTime)
+queue 20
+Arguments = Simpson   0.15  0.009    $(runTime)
+queue 20
+Arguments = Simpson   0.15  0.010    $(runTime)
+queue 10
+Arguments = Simpson   0.15  0.011    $(runTime)
+queue 10
+Arguments = Simpson   0.15  0.012    $(runTime)
+queue 10
+Arguments = Simpson   0.15  0.013    $(runTime)
+queue 10
+Arguments = Simpson   0.15  0.014    $(runTime)
+queue 5
+Arguments = Simpson   0.15  0.015    $(runTime)
+queue 5
+Arguments = Simpson   0.15  0.016    $(runTime)
+queue 5
+Arguments = Simpson   0.15  0.017    $(runTime)
+queue 5
+Arguments = Simpson   0.15  0.018    $(runTime)
+queue 5
+Arguments = Simpson   0.15  0.019    $(runTime)
+queue 5
+Arguments = Simpson   0.15  0.020    $(runTime)
+queue 5
+Arguments = Simpson   0.15  0.021    $(runTime)
+queue 3
+Arguments = Simpson   0.15  0.022    $(runTime)
+queue 3
+Arguments = Simpson   0.15  0.023    $(runTime)
+queue 3
+Arguments = Simpson   0.15  0.024    $(runTime)
+queue 3
+Arguments = Simpson   0.15  0.025    $(runTime)
+queue 3
+Arguments = Simpson   0.15  0.026    $(runTime)
+queue 3
+Arguments = Simpson   0.15  0.027    $(runTime)
+queue 3
+Arguments = Simpson   0.15  0.028    $(runTime)
+queue 3
+Arguments = Simpson   0.15  0.029    $(runTime)
+queue 3
+Arguments = Simpson   0.15  0.030    $(runTime)
+queue 3

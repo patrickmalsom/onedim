@@ -1,0 +1,25 @@
+universe = vanilla
+
+executable = forwardInt-Stats-MHMC.py
+
+output = log/forwardIntStatsMHMC-$(Cluster)-$(Process).out
+error = log/forwardIntStatsMHMC-$(Cluster)-$(Process).err
+log = log/forwardIntStatsMHMC-$(Cluster)-$(Process).log
+
+#Arguments = LeapFrog 0
+#queue 10
+
+#Arguments = LeapFrog 1
+#queue 10
+
+#Arguments = MidPt 0
+#queue 10
+
+#Arguments = MidPt 1
+#queue 10
+
+#Arguments = Simpson 0
+#queue 10
+
+Arguments = Simpson 1
+queue 160
