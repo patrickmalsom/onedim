@@ -16,16 +16,27 @@ numpy.random.seed(random.SystemRandom().randint(1,1000000))
 #pr = cProfile.Profile()
 #pr.enable()
 
-#===================================
-# command line inputs
-method=str(sys.argv[1])    # Integration method: LeapFrog,MidPt,Simpson
-MHMC_bool=int(sys.argv[2]) # Metropolis-Hastings switch (0:off, 1:on)
-MHG_bool=int(sys.argv[3])  # Metropolis-Hastings-Green switch (0:off, 1:on)
-eps=float(sys.argv[4])     # Configurational temperature (eps)
-dt=float(sys.argv[5])      # Time step (dt)
-NumB=int(sys.argv[6])      # Total path steps (number of beads)
+##===================================
+# Argparse: command line options
+import argparse
+parser = argparse.ArgumentParser(description='Forward integration of the SDE with MH(G)MC using Leap Frog, Mid Point and Simpsons.')
+parser.add_argument('method', type=str, help='Integration method: LeapFrog MidPt Simpson')
+parser.add_argument('MHMC', type=int, help='Metropolis-Hastings Boolean')
+parser.add_argument('MHG', type=int, help='Metropolis-Hastings-Green Boolean')
+parser.add_argument('eps', type=float, help='Configurational temperature')
+parser.add_argument('dt', type=float, help='Time step')
+parser.add_argument('NumB', type=int, help='Total path steps (number of beads)')
+args = parser.parse_args()
+
+method=args.method  # Integration method: LeapFrog,MidPt,Simpson
+MHMC_bool=args.MHMC # Metropolis-Hastings switch (0:off, 1:on)
+MHG_bool=args.MHG   # Metropolis-Hastings-Green switch (0:off, 1:on)
+eps=args.eps        # Configurational temperature (eps)
+dt=args.dt          # Time step (dt)
+NumB=args.NumB      # Total path steps (number of beads)
 
 
+##===================================
 # save the decimal form of the method
 if method == 'LeapFrog':
   method_decimal = 1
@@ -168,7 +179,7 @@ def createTrajectory():
   LeftBasin=-2/3.
   RightBasin=4/3.
 
-  #===================================
+  #============== MAIN LOOP =====================
   for i in xrange(NumB):
     # generate thermalized noise to use when generating the new step
     v0h = pref*numpy.random.normal(0.0,1.0)
@@ -219,5 +230,5 @@ def createTrajectory():
   # print out the final results of the simulation
   print"%d %d %d %f %f %d %d %f %f #%s" % (method_decimal, MHMC_bool, MHG_bool, eps, dt, NumB, trans, 0.5*((signCt/NumB)+1.0), float(acc)/float(NumB), endingPrintStr)
 
-# run the code
+# ============== run the code =======================
 createTrajectory()
