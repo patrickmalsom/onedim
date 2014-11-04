@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/usr/bin/env python
 
 # import libraries
 import math
@@ -9,122 +9,215 @@ import random
 import numpy
 numpy.random.seed(random.SystemRandom().randint(1,1000000))
 
-# Define the constants
-method=sys.argv[1]   # LeapFrog,MidPt,Simpson
-#Temp=0.15           # configurational temperature
-#dt=0.025            # time step dt
-#Nb=10000001           # path length
-
+##===================================
+## set up the profiler
+#import cProfile, pstats, StringIO
+##profiler start
+#pr = cProfile.Profile()
+#pr.enable()
 
 #===================================
-# define the force ( for this example V(x)=fat skinny )
-def F(x): return x*(6.75 + x*(-5.0625 + x*(-11.390625 + (14.23828125 - 4.271484375*x)*x)))
+# command line inputs
+method=str(sys.argv[1])    # Integration method: LeapFrog,MidPt,Simpson
+MHMC_bool=int(sys.argv[2]) # Metropolis-Hastings switch (0:off, 1:on)
+MHG_bool=int(sys.argv[3])  # Metropolis-Hastings-Green switch (0:off, 1:on)
+eps=float(sys.argv[4])     # Configurational temperature (eps)
+dt=float(sys.argv[5])      # Time step (dt)
+NumB=int(sys.argv[6])      # Total path steps (number of beads)
 
-def U(x): return 1. + x*x*(-3.375 + x*(1.6875 + x*(2.84765625 + (-2.84765625 + 0.7119140625*x)*x)))
 
-def H(x): return -6.75 + x*(10.125 + x*(34.171875 + x*(-56.953125 + 21.357421875*x)))
-#===================================
-# genStep: function to generate the xnew step under seperate methods
-# Leap Frog integration
-if method == "LeapFrog":
-  def genStep(xold, dt, noise):
-    return ( xold + dt*F(xold) + noise )
-
-# Mid-Point integration
-elif method == "MidPt":
-  def genStep(xold, dt, noise):
-    xnew = xold + dt*F(xold) + noise
-    xguess = xold + dt*F(0.5*(xold+xnew)) + noise
-    while xnew-xguess>10.**-13.:
-      xnew=xguess
-      xguess = xold + dt*F(0.5*(xold+xnew)) + noise
-    return xguess
-
-# Simpsons method integration
-elif method == "Simpson":
-  def genStep(xold, dt, noise):
-    xnew = xold + dt*F(xold) + noise
-    xguess = xold + (dt/6.)*(F(xold) + F(xnew) + 4.*F(0.5*(xold+xnew)) ) + noise
-    while xnew-xguess>10.**-13.:
-      xnew=xguess
-      xguess = xold + (dt/6.)*(F(xold) + F(xnew) + 4.*F(0.5*(xold+xnew)) ) + noise
-    for i in xrange(3):
-      xnew=xguess
-      xguess = xold + (dt/6.)*(F(xold) + F(xnew) + 4.*F(0.5*(xold+xnew)) ) + noise
-    return xguess
-
+# save the decimal form of the method
+if method == 'LeapFrog':
+  method_decimal = 1
+elif method == 'MidPt':
+  method_decimal = 2
+elif method == 'Simpson':
+  method_decimal = 3
 else:
   print "no method matching: " + method
   sys.exit(0)
+
 #===================================
-#calcEnergy: function that calculates the energy error associated
+# define the potential, force and hessian ( for this example V(x)=fat skinny )
+def U(x): return 1. + x*x*(-3.375 + x*(1.6875 + x*(2.84765625 + (-2.84765625 + 0.7119140625*x)*x)))
+def F(x): return x*(6.75 + x*(-5.0625 + x*(-11.390625 + (14.23828125 - 4.271484375*x)*x)))
+def H(x): return -6.75 + x*(10.125 + x*(34.171875 + x*(-56.953125 + 21.357421875*x)))
+
+
+#===================================
+# genStep: function to generate the xnew position
+#    uses 'method' argument to determine integration technique
+def genStep(int_method, xold, noise):
+  # ============= Leap Frog Integrator ==============
+  if int_method == "LeapFrog":
+    return ( xold + dt*F(xold) + noise )
+
+  # ============= Mid Point Integrator ==============
+  elif int_method == "MidPt":
+
+    # find the new position using leap frog
+    xnew = xold + dt*F(xold) + noise
+
+    # generate the new guess state using the mid point
+    xguess = xold + dt*F(0.5*(xold+xnew)) + noise
+
+    # iterate on this generation until the new step matches the guessed step to 13 digits
+    while xnew-xguess>10.**-13.:
+      xnew=xguess
+      xguess = xold + dt*F(0.5*(xold+xnew)) + noise
+
+    # perform 3 more of these guesses for good measure. This is important as the MHMC 
+    # step is very sensitive to the correct future step being generated.
+    for i in xrange(3):
+      xnew=xguess
+      xguess = xold + dt*F(0.5*(xold+xnew)) + noise
+    
+    # finally return the resulting future state
+    return xguess
+
+  # ============= Simpson's Integrator ==============
+  elif int_method == "Simpson":
+    # define dt/6.0
+    dtOverSix = (dt/6.)
+
+    # find the new position using leap frog
+    xnew = xold + dt*F(xold) + noise
+
+    # generate the new guess state using Simpson's method
+    xguess = xold + dtOverSix*(F(xold) + F(xnew) + 4.*F(0.5*(xold+xnew)) ) + noise
+
+    # iterate on this generation until the new step matches the guessed step to 13 digits
+    while xnew-xguess>10.**-13.:
+      xnew=xguess
+      xguess = xold + dtOverSix*(F(xold) + F(xnew) + 4.*F(0.5*(xold+xnew)) ) + noise
+
+    # perform 3 more of these guesses for good measure. This is important as the MHMC 
+    # step is very sensitive to the correct future step being generated.
+    for i in xrange(3):
+      xnew=xguess
+      xguess = xold + dtOverSix*(F(xold) + F(xnew) + 4.*F(0.5*(xold+xnew)) ) + noise
+
+    # finally return the resulting future state
+    return xguess
+
+#===================================
+# calcEnergy: function that calculates the energy error associated
 #    with the integration forward. 
-# Leap Frog Error
-if method == "LeapFrog":
-    def JacobianCorrection(xold,xnew,dt):
-        return 1.0
+def calcEnergy(int_method, xold, xnew):
+  # ============== Leap Frog Error =================
+  if int_method == "LeapFrog":
+    # evaluate the force at current and next step for later use
+    Fx1, Fx0 = F(xnew), F(xold)
+    # return the energy error. see notes for explanation of algebra.
+    return 0.5*(xnew-xold)*(Fx1+Fx0)+dt*0.25*(Fx1*Fx1-Fx0*Fx0) + (U(xnew) - U(xold))
 
-    def calcEnergy(xold,xnew,dt):
-        Fx1=F(xnew)
-        Fx0=F(xold)
-        return 0.5*(xnew-xold)*(Fx1+Fx0)+dt*0.25*(Fx1*Fx1-Fx0*Fx0)+U(xnew)-U(xold)
+  # ============== Mid Point Error =================
+  if int_method == "MidPt":
+    # return the energy error. see notes for explanation of algebra.
+    return (xnew-xold) * F(0.5*(xnew+xold)) + (U(xnew) - U(xold))
 
-elif method == "MidPt":
-    def JacobianCorrection(xold,xnew,dt):
-        return 1.0
+  # ============== Simpson's Error =================
+  if int_method == "Simpson":
+    # return the energy error. see notes for explanation of algebra.
+    return 1/6. * (xnew-xold) * ( F(xnew)+F(xold)+4.*F(0.5*(xnew+xold)) ) + (U(xnew) - U(xold))
+  
+#===================================
+# JacobianCorrection: function that calculates the correction to the MHMC method
+#    to turn it into metropolis hastings green method. 
 
-    def calcEnergy(xold,xnew,dt):
-        return (xnew-xold)*F(0.5*(xnew+xold))+U(xnew)-U(xold)
+def JacobianCorrection(int_method, xold, xnew):
+  # ============= Leap Frog Jacobian ===============
+  if int_method == "LeapFrog":
+    return 1.0
+  # ============= Mid Point Jacobian ===============
+  elif int_method == "MidPt":
+    return 1.0
         
-elif method == "Simpson":
-    def JacobianCorrection(xold,xnew,dt):
-        oneSixth=0.16666666666666666
-        oneThird=0.33333333333333333
-        xbar=0.5*(xold+xnew)
-        return (1. + dt*(oneSixth*H(xold) + oneThird*H(xbar))) / (1. + dt*(oneSixth*H(xnew) + oneThird*H(xbar)) )
-
-    def calcEnergy(xold,xnew,dt):
-        return 0.16666666666666666*(xnew-xold)*(F(xnew)+F(xold)+4.*F(0.5*(xnew+xold))) + (U(xnew) - U(xold))
+  # ============= Simpson's Jacobian ===============
+  elif int_method == "Simpson":
+    dtOverSix = (dt/6.0)
+    xbar=0.5*(xold+xnew)
+    return ( 1.0 + dtOverSix*(H(xold) + 2.0*H(xbar)) ) / ( 1.0 + dtOverSix*(H(xnew) + 2.0*H(xbar)) )
     
-    
+#===================================
+# createTrajectory: main function that performs the simulation.
+#    prints results to stdout when finished
+def createTrajectory():
 
-    
-def createTrajectory(temperature, dt, Nb, MHMC_bool):
+  # starting position
+  xstart=4/3.
+  # initial basin position
+  basin=xstart
 
-    xstart=4/3.         # starting position
-    basin=xstart
-    LeftBasin=-2/3.
-    RightBasin=4/3.
-    
-    xold = xstart
-    pref=math.sqrt(2.0*temperature*dt)
-    signCt=math.copysign(1.,xstart)
-    trans=0
-    acc=0
-    rej=0
+  # set the starting position 
+  xold = xstart
 
-    #===================================
-    for i in xrange(Nb):
-        noise = pref*numpy.random.normal(0.0,1.0)
+  # prefactor in front of the noise to make v0h
+  pref=math.sqrt(2.0*eps*dt)
+  
+  # counter that incriments if you are in pos or neg basin
+  # Note: only works for barrier centered about 0.
+  signCt=0.0
 
-        xnew=genStep(xold,dt,noise)
+  # accumulators
+  trans=0
+  acc=0
+  rej=0
 
-        signCt+=math.copysign(1.0,xnew)
-        if xnew>RightBasin and basin == RightBasin:
-            basin = LeftBasin
-        if xnew<LeftBasin and basin == LeftBasin:
-            basin=RightBasin
-            trans+=1
+  # basin minima
+  LeftBasin=-2/3.
+  RightBasin=4/3.
 
-        if MHMC_bool==True:
-            if JacobianCorrection(xold,xnew,dt)*math.exp(-calcEnergy(xold,xnew,dt)/temperature)>numpy.random.random():
-                acc+=1
-                xold=xnew
-            else:
-                rej+=1    
+  #===================================
+  for i in xrange(NumB):
+    # generate thermalized noise to use when generating the new step
+    v0h = pref*numpy.random.normal(0.0,1.0)
+
+    # generate the new step (using specific method)
+    xnew=genStep(method, xold, v0h)
+
+    # incriment if the particle is in the right or left well
+    signCt+=math.copysign(1.0,xnew)
+
+    # counter for left/right basin. used to find total transition number
+    if xnew>RightBasin and basin == RightBasin:
+      basin = LeftBasin # dont incriment the transition counter
+    if xnew<LeftBasin and basin == LeftBasin:
+      basin=RightBasin
+      trans+=1 # incriment the trasition counter. trans is back and forth. 
+
+    # If metropolis hastings is required do the following loop
+    if MHMC_bool==True:
+      # ============= Metropolis Hastings Green =================
+      # if metropolis-hastings-green is to be performed (includes the jacobian)
+      if MHG_bool == True:
+        if JacobianCorrection(method,xold,xnew)*math.exp(-calcEnergy(method,xold,xnew)/eps)>numpy.random.random():
+          acc+=1
+          xold=xnew
         else:
-            xold=xnew
+          rej+=1    
+      # ============= Metropolis Hastings =================
+      else:
+        if math.exp(-calcEnergy(method,xold,xnew)/eps)>numpy.random.random():
+          acc+=1
+          xold=xnew
+        else:
+          rej+=1    
 
-    print "JacobianNew %s  %d  %d  %f  %f  %f  %d  %f"%(method, MHMC_bool, trans,temperature,dt,0.5*((signCt/Nb)+1.0),Nb,float(acc)/float(Nb))
+    # ============= NO Metropolis Test ===============
+    else:
+      xold=xnew
 
-createTrajectory(0.15,0.025,1000000001,int(sys.argv[2]))
+
+  # string to print at the end of the numeric part. Gives a human readable string
+  endingPrintStr=method
+  if MHMC_bool==True:
+    endingPrintStr = endingPrintStr + "MH"
+  if MHG_bool==True:
+    endingPrintStr = endingPrintStr + "G"
+
+  # print out the final results of the simulation
+  print"%d %d %d %f %f %d %d %f %f #%s" % (method_decimal, MHMC_bool, MHG_bool, eps, dt, NumB, trans, 0.5*((signCt/NumB)+1.0), float(acc)/float(NumB), endingPrintStr)
+
+# run the code
+createTrajectory()
