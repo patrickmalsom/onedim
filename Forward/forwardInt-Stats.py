@@ -156,7 +156,7 @@ def JacobianCorrection(int_method, xold, xnew):
 def createTrajectory():
 
   # starting position
-  xstart=4/3.
+  xstart=-2/3.
   # initial basin position
   basin=xstart
 
@@ -191,11 +191,11 @@ def createTrajectory():
     signCt+=math.copysign(1.0,xnew)
 
     # counter for left/right basin. used to find total transition number
-    if xnew>RightBasin and basin == RightBasin:
-      basin = LeftBasin # dont incriment the transition counter
-    if xnew<LeftBasin and basin == LeftBasin:
-      basin=RightBasin
-      trans+=1 # incriment the trasition counter. trans is back and forth. 
+    if xnew>RightBasin and basin == LeftBasin:
+      basin = RightBasin 
+      trans+=1 
+    if xnew<LeftBasin and basin == RightBasin:
+      basin=LeftBasin
 
     # If metropolis hastings is required do the following loop
     if MHMC_bool==True:
@@ -228,7 +228,8 @@ def createTrajectory():
     endingPrintStr = endingPrintStr + "G"
 
   # print out the final results of the simulation
-  print"%d %d %d %f %f %d %d %f %f #%s" % (method_decimal, MHMC_bool, MHG_bool, eps, dt, NumB, trans, 0.5*((signCt/NumB)+1.0), float(acc)/float(NumB), endingPrintStr)
+  if xnew > 0.3:
+    print"%d %d %d %f %f %d %d %f %f %f #%s" % (method_decimal, MHMC_bool, MHG_bool, eps, dt, NumB, trans, 0.5*((signCt/NumB)+1.0), float(acc)/float(NumB), xnew, endingPrintStr)
 
 # ============== run the code =======================
 createTrajectory()
