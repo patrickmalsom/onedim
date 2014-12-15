@@ -254,6 +254,25 @@ def printState():
     print "\tDelta E: %1.6f" % Echange ,
     print "\tExp(-dE*dt/2/eps): %1.6f" % math.exp(-Echange*deltat/(2.0*eps))
 
+def printTrans():
+    global pathNew
+
+    transCt=0
+    xstart=pathNew[0].pos
+
+    basinLeft=-2/3.
+    basinRight=4/3.
+
+    basin=basinLeft
+
+    for i in xrange(NumB):
+        if (pathNew[i].pos >4/3.) and (basin == basinLeft):
+            basin=basinRight
+        if (pathNew[i].pos < -2/3.) and (basin == basinRight):
+            basin=basinLeft
+            transCt+=1
+    print "Transitions: %d" % (transCt)
+
 def printParams():
     print '------------------------------------------------'
     print 'New HMC algorithm (finite time step) for 1D external potential'
@@ -465,6 +484,7 @@ for HMCIter in range(args.HMC):
             if pathCur[i].pos > 0:
                 posBasin+=1
         print "posBasin: %i" % (posBasin)
+        printTrans()
     else:
         rej+=1
         for i in range(NumB):
