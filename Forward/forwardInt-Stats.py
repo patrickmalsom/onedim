@@ -228,8 +228,7 @@ def createTrajectory():
     endingPrintStr = endingPrintStr + "G"
 
   # print out the final results of the simulation
-  if xnew > 0.3:
-    print"%d %d %d %f %f %d %d %f %f %f #%s" % (method_decimal, MHMC_bool, MHG_bool, eps, dt, NumB, trans, 0.5*((signCt/NumB)+1.0), float(acc)/float(NumB), xnew, endingPrintStr)
+  print"%d %d %d %f %f %d %d %f %f %f #%s" % (method_decimal, MHMC_bool, MHG_bool, eps, dt, NumB, trans, 0.5*((signCt/NumB)+1.0), float(acc)/float(NumB), xnew, endingPrintStr)
 
 # ============== run the code =======================
 createTrajectory()
