@@ -322,11 +322,21 @@ for HMCIter in range(args.HMC):
 
 
 
+#    print "In0: %f 1: %f mid: %f end: %f" % (savePath[0], savePath[1],savePath[5000],savePath[NumB-1])
+#    print "  0: %f 1: %f mid: %f end: %f" % (pathCur[0].pos, pathCur[1].pos,pathCur[5000].pos, pathCur[NumB-1].pos)
+#    print "BB0: %f 1: %f mid: %f end: %f" % (pathCur[0].bb, pathCur[1].bb,pathCur[5000].bb, pathCur[NumB-1].bb)
+#    plt.plot([pathCur[i].pos for i in range(NumB-1)])
+
 
     rotatePaths()
     print "======== SPDE =========="
     printState()
+#    print "0: %f 1: %f mid: %f end: %f" % (pathCur[0].pos, pathCur[1].pos,pathCur[5000].pos, pathCur[NumB-1].pos)
+#    print "BB0: %f 1: %f mid: %f end: %f" % (pathCur[0].bb, pathCur[1].bb,pathCur[5000].bb, pathCur[NumB-1].bb)
     print "========================"
+#    plt.plot([pathCur[i].pos for i in range(NumB-1)])
+#    plt.savefig('test.png')
+#    plt.close()
 
 
     for MDIter in range( max(1,int(args.MD*(0.5 + np.random.random()))) ):

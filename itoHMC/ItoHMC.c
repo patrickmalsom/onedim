@@ -123,13 +123,12 @@ void calcSPDEpos(averages* path0, averages* path1, parameters params){
   // this is x^{(1)} vector in the notes
 
   int i;
-  double h=sqrt(2.0*params.deltat);
+  double h=sqrt(2.0*params.deltatau);
   double si=(4.0*h)/(4.0+h*h);
   double co=(4.0-h*h)/(4.0+h*h);
-  double noisePref=sqrt(2.0*params.eps*params.deltat);
 
   for(i=1;i<params.NumB-1;i++){
-  path1[i].pos=si*h*0.5*path0[i].LinvG + si*noisePref*path0[i].randlist + co * path0[i].pos;
+  path1[i].pos=si*h*0.5*path0[i].LinvG + si*path0[i].bb + co * path0[i].pos;
   }
 
   //set boundary conditions
@@ -144,7 +143,7 @@ void calcMDpos(averages* path0, averages* path1, averages* path2, parameters par
   // this is x^{(2)} vector in the notes
 
   int i;
-  double h=sqrt(2.0*params.deltat);
+  double h=sqrt(2.0*params.deltatau);
   double si=(4.0*h)/(4.0+h*h);
   double co=(4.0-h*h)/(4.0+h*h);
 
@@ -163,7 +162,7 @@ double calcEnergyChange(averages* path0, averages* path1, parameters params){
 
   int i;
 
-  double h=sqrt(2.0*params.deltat);
+  double h=sqrt(2.0*params.deltatau);
   double cot=(4.0l-h*h)/(4.0l*h);
   double csc=(4.0l+h*h)/(4.0l*h);
 
