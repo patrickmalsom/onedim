@@ -304,12 +304,14 @@ for HMCIter in range(args.HMC):
 
     # filled the entire path struct
     FillCurState()
+    c_calcLInverse(pathCur,params)
 
     # calculate the new positions
     c_calcSPDEpos(pathCur, pathNew, params)
 
     # calculate all of the struct arrays
     FillNewState()
+    c_calcLInverse(pathNew,params)
 
     # reset the energy change accumulator at the beginning of the SPDE step
     Echange=0.0
@@ -347,6 +349,7 @@ for HMCIter in range(args.HMC):
 
         # calculate all of the struct arrays
         FillNewState()
+        c_calcLInverse(pathNew,params)
 
         Echange+=c_calcEnergyChange(pathCur,pathNew,params)
 
