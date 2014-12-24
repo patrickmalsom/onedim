@@ -21,8 +21,8 @@ parser.add_argument('-t','--test', action="store_true",
     help='run py.test unit tests')
 parser.add_argument('-i','--infile', type=str, default='inFile.dat', 
     help='input path positions;           default=inFile.dat')
-parser.add_argument('-o','--outfile', type=str, default='outFile.dat', 
-    help='output path positions;          default=outFile.dat')
+parser.add_argument('-o','--outfile', type=str, default='outPathFinal.dat', 
+    help='output path positions;          default=outPathFinal.dat')
 parser.add_argument('-T','--temperature', type=float, default=0.15, 
     help='configurational temperature;    default=0.15')
 parser.add_argument('--deltat', type=float, default=0.005, 
@@ -388,7 +388,7 @@ for HMCIter in range(args.HMC):
 
     if HMCIter % max(1,int(int(args.HMC)/float(args.WriteFiles))) == 0:
         # write/plot the path and save to file
-        writeCurPath("Path"+str(HMCIter)+".dat")
+        writeCurPath("outPath"+str(HMCIter)+".dat")
         #plt.plot([pathCur[i].pos for i in range(NumB)])
         #plt.savefig('testplot'+str(plotiter)+'.png')
         #plt.close()
