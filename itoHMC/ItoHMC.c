@@ -50,43 +50,68 @@ typedef struct _path
 // Functions
 // ==================================================================================
 
-// ==================================================================================
-//fat skinny
+/* =====================================================================
+ * Potential Definitions: Fat-Skinny Potential: (3x-4)^4*(3x+2)^2/1024
+ * -----------------------------
+ *   Pot:       U(x)          -> returns the potential at a position
+ *   Force:     F(x)=-dU/dx   -> returns the force at a position
+ *   ForcePr:   F'(x)=dF/dx   -> returns the first deriv of force
+ *   ForcePrPr: F''(x)=dF'/dx -> returns the second deriv of force
+*/
 double Pot(double x){
-  // U(x): returns the potential at a position
   return 1. + x*x*(-3.375 + x*(1.6875 + x*(2.84765625 + (-2.84765625 + 0.7119140625*x)*x)));
 }
-double Force(double x) {
-  // F(x)=-dU/dx: returns the force at a position
+double Force(double x){
   return x*(6.75 + x*(-5.0625 + x*(-11.390625 + (14.23828125 - 4.271484375*x)*x)));
 }
 double ForcePrime(double x){
-  // F'(x)=dF/dx: returns the force at a position
   return 6.75 + x*(-10.125 + x*(-34.171875 + (56.953125 - 21.357421875*x)*x));
 }
 double ForceDoublePrime(double x){
-  // F'(x)=dF/dx: returns the force at a position
   return -10.125 + x*(-68.34375 + (170.859375 - 85.4296875*x)*x);
 }
 
-//============================================
+/* =====================================================================
+ * Function: calcPotentials
+ * -----------------------------
+ * Calculates all of the potentials needed for the simulation for a path struct 
+ *   - Need to be careful about the above function calls (Pot, Force...)
+ *   - This loop does most of the heavy lifting of the computation 
+ *     (other than LinvG and random number generation) and is perfectly parallel!
+ * 
+ *   path: input path_struct to calculate potentials for
+ *   params: (constant) parameters for the run
+*/
 void calcPotentials(averages* path, parameters params)
 {
   int i;
 
+  #pragma omp parallel for
   for(i=0;i<params.NumB;i++){
-
+    // Force
     path[i].F=Force(path[i].pos);
+    // F' = dF/dx
     path[i].Fp=ForcePrime(path[i].pos);
+    // F'' = d^2F/dx^2
     path[i].Fpp=ForceDoublePrime(path[i].pos);
-
+    // G = 1/2*F^2 + eps*F'
     path[i].G=0.5*path[i].F*path[i].F + params.eps*path[i].Fp;
+    // Grad G = F*F' + eps*F''
     path[i].gradG=path[i].F*path[i].Fp + params.eps*path[i].Fpp;
-   
   }
+
 }
 
-//============================================
+/* =====================================================================
+ * Function: LInverse
+ * -----------------------------
+ * Calculates L^{-1} Grad G for a path struct
+ *   - Struct potentials must be filled before calling (calcPotentials)
+ *   - THIS LOOP IS RECURSIVE! take care when parallelizing
+ * 
+ *   path: input path_struct to calculate LinvG for
+ *   params: (constant) parameters for the run
+*/
 void LInverse(averages* path, parameters params)
 {
   double lasti;
@@ -117,7 +142,18 @@ void LInverse(averages* path, parameters params)
 
 }
 
-// ==================================================================================
+/* =====================================================================
+ * Function: calcSPDEpos
+ * -----------------------------
+ * Calculate the new position for the MALA step (SPDE)
+ *   - fills path1[i].pos with the new path positions
+ *   - requires that path0 is completely initialized
+ *     (calcPotentials, Liverse, BrownianBridge)
+ * 
+ *   path0: input path_struct (filled)
+ *   path1: output path_struct
+ *   params: (constant) parameters for the run
+*/
 void calcSPDEpos(averages* path0, averages* path1, parameters params){
   // calculate the right hand side vector for the SPDE
   // this is x^{(1)} vector in the notes
@@ -137,7 +173,19 @@ void calcSPDEpos(averages* path0, averages* path1, parameters params){
 
 }
 
-// ==================================================================================
+/* =====================================================================
+ * Function: calcMDpos
+ * -----------------------------
+ * Calculate the new position for a molecular dynamics step (MD)
+ *   - fills path2[i].pos with the new path positions
+ *   - requires that path0 and path1 are completely initialized
+ *     (calcPotentials, Liverse)
+ * 
+ *   path0: old path_struct (filled)
+ *   path1: current path_struct (filled)
+ *   path2: output path_struct
+ *   params: (constant) parameters for the run
+*/
 void calcMDpos(averages* path0, averages* path1, averages* path2, parameters params){
   // calculate the right hand side vector for the MD steps
   // this is x^{(2)} vector in the notes
@@ -157,7 +205,19 @@ void calcMDpos(averages* path0, averages* path1, averages* path2, parameters par
 
 }
 
-// ==================================================================================
+/* =====================================================================
+ * Function: calcEnergyChange
+ * -----------------------------
+ * Calculate the energy error made when integrating from path0 to path1
+ *   - requires that path0 and path1 are completely initialized
+ *     (calcPotentials, Liverse)
+ * 
+ *   path0: current path_struct (filled)
+ *   path1: new path_struct (filled)
+ *   params: (constant) parameters for the run
+ *
+ *   return: the negative argument of the metropolis hastings test: dE/(2 epsilon)
+*/
 double calcEnergyChange(averages* path0, averages* path1, parameters params){
 
   int i;
@@ -206,7 +266,16 @@ double calcEnergyChange(averages* path0, averages* path1, parameters params){
 }
 
 
-//============================================
+/* =====================================================================
+ * Function: generateBB
+ * -----------------------------
+ * Make a normalized Brownian bridge for use in the MALA (SPDE) step
+ *   - saves the bridge to path.bb
+ *   - requires that path.randlist is filled (from the python side)
+ * 
+ *   path0: any path_struct (randlist filled)
+ *   params: (constant) parameters for the run
+*/
 void generateBB(averages* path, parameters params){
 //generate a Brownian bridge and store to BrownianBridge
   int n;
@@ -248,10 +317,19 @@ void generateBB(averages* path, parameters params){
   }
 }
 
-// ==================================================================================
+/* =====================================================================
+ * Function: quadVar
+ * -----------------------------
+ * Calculate the quadratic variation of a path
+ * 
+ *   path: any path_struct (pos filled)
+ *   params: (constant) parameters for the run
+ *
+ *   return: normalized quadratic variation 
+ *           sum(x_1-x_0)^2 /(2 eps T) -> 1.0
+*/
 double quadVar(averages* path, parameters params){
-  // fill out the Hessian variables for the structure
-  // initial params must have the positions filled
+
   double qv=0.0;
   int i;
 
