@@ -9,9 +9,10 @@ import numpy as np
 import math
 import sys
 import random
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+import hashlib
+#import matplotlib
+#matplotlib.use('Agg')
+#import matplotlib.pyplot as plt
 
 # Argparse: command line options
 import argparse
@@ -34,13 +35,11 @@ parser.add_argument('--HMC', type=int, default=2,
     help='HMC loops (SDE+MD+MC);          default=2')
 parser.add_argument('--MD', type=int, default=150, 
     help='MD steps per full HMC;          default=150')
+parser.add_argument('--WriteFiles', type=int, default=5, 
+    help='Number of files to write;       default=5')
 parser.add_argument('--RNGseed', type=int, 
     help='random number seed;             default=random')
 args = parser.parse_args()
-
-
-# numpy.random.seed(random.SystemRandom().randint(1,100000000000))
-
 
 # python profiler
 import cProfile, pstats, StringIO
@@ -70,6 +69,7 @@ clib=ctypes.CDLL("ItoHMC.so")
 #clib.Pot.restype = DOUBLE
 c_calcPotentials=clib.calcPotentials
 c_calcLInverse=clib.LInverse
+
 c_calcSPDEpos=clib.calcSPDEpos
 c_calcMDpos=clib.calcMDpos
 c_genBB=clib.generateBB
@@ -98,6 +98,7 @@ NumL=NumB-2 # size of matrix (I+-rL)
 # ===============================================
 # C struct setup
 # ===============================================
+# IMPORTANT: These structs must EXACTLY MATCH the structs defined in the C code!
 
 # save parameters to a struct to pass to the C routines
 class Parameters(ctypes.Structure):
@@ -160,10 +161,11 @@ def saveStartingState(pathSave):
         pathSave[i]=pathCur[i].pos
 
 
-def printState():
-    print "qv: %1.6f" % c_quadVar(pathCur,params),
-    print "\tDelta E: %1.6f" % (Echange*2.*eps) ,
-    print "\tExp(-dE*dt/2/eps): %1.6f" % math.exp(-Echange)
+def printState(identifier):
+    print "%s" % (identifier),
+    print "\tqv: %1.6f" % c_quadVar(pathCur,params),
+    print "\tDelta E: %1.15f" % (Echange*2.*eps) ,
+    print "\tExp(-dE*dt/2/eps): %1.15f" % math.exp(-Echange)
 
 def printTrans():
     global pathNew
@@ -187,43 +189,42 @@ def printTrans():
 def printParams():
     print '------------------------------------------------'
     print 'New HMC algorithm (finite time step) for 1D external potential'
-    print 'configurational temperature=%f' % eps
-    print 'delta t=%e' % args.deltat
-    print 'delta tau=%e' % args.deltatau
-    print 'path length=%d' % NumB
-    print 'HMC loops=%d' % args.HMC
-    print 'MD loops=%d' % args.MD
-    print "RNG seed: %d" % args.RNGseed
+    print '  input file name=%s' % args.infile
+    print '  md5 hash: '+hashlib.md5(open(args.infile).read()).hexdigest()
+    print '  eps  = %f' % eps
+    print '  dt   = %e' % args.deltat
+    print '  dtau = %e' % args.deltatau
+    print '  Nb   = %d' % NumB
+    print '  HMC  = %d' % args.HMC
+    print '  MD   = %d' % args.MD
+    print "  seed = %d" % args.RNGseed
     print '------------------------------------------------'
 
 def writeCurPath(fileName):
     global pathCur
     np.savetxt(fileName,np.array([pathCur[i].pos for i in range(NumB)]))
 
-def makeHistogram(path,pltname):
+#def makeHistogram(path,pltname):
 
-    #calculate the partition function for use in the plots
-    expPot = lambda x: math.exp(-(((3.*x+2.)**2 * (3.*x-4.)**4)/1024.)/0.15)
-    Z0=1.1229622054
-    ### mathematica code to find partition function normalization
-    #NIntegrate[Exp[-((3 x + 2)^2 * (3 x - 4)^4/1024)/0.15], {x, -100, 100}]
+#    #calculate the partition function for use in the plots
+#    expPot = lambda x: math.exp(-(((3.*x+2.)**2 * (3.*x-4.)**4)/1024.)/0.15)
+#    Z0=1.1229622054
+#    ### mathematica code to find partition function normalization
+#    #NIntegrate[Exp[-((3 x + 2)^2 * (3 x - 4)^4/1024)/0.15], {x, -100, 100}]
 
-    HistData=[0 for i in range(400)]
-    for i in range(len(path)):
-        HistData[int((path[i]+1.5)*100)]+=1
+#    HistData=[0 for i in range(400)]
+#    for i in range(len(path)):
+#        HistData[int((path[i]+1.5)*100)]+=1
 
-    invPathLen=1.0/(len(path)*0.005)
-    plt.plot([i for i in np.linspace(-1.5,2.5,400)],[expPot(i)/Z0 for i in np.linspace(-1.5,2.5,400)])
-    plt.plot([i for i in np.linspace(-1.5,2.5,400)],np.array(HistData)*invPathLen)
-    plt.savefig('Histplot'+pltname+'.png')
-    plt.close()
+#    invPathLen=1.0/(len(path)*0.005)
+#    plt.plot([i for i in np.linspace(-1.5,2.5,400)],[expPot(i)/Z0 for i in np.linspace(-1.5,2.5,400)])
+#    plt.plot([i for i in np.linspace(-1.5,2.5,400)],np.array(HistData)*invPathLen)
+#    plt.savefig('Histplot'+pltname+'.png')
+#    plt.close()
 
 # ===============================================
 # Unit Tests
 # ===============================================
-def tFunc(x):
-    return x+1
-
 class TestClass:
 
     def test_setUp(self):
@@ -232,18 +233,14 @@ class TestClass:
         args.HMC=0
         assert 1
 
-    def test_example_test1(self):
-        assert tFunc(2)==3
-
-    def test_example_test2(self):
-        assert tFunc(2)==3 
-
     def test_tearDown(self):
         assert 1
         pytest.exit("ending the tests")
 
+
 # ===============================================
 # MAIN loop
+# ===============================================
 
 if args.RNGseed is None:
   args.RNGseed = random.SystemRandom().randint(1,1000000)
@@ -302,9 +299,21 @@ for HMCIter in range(args.HMC):
     # generate the brownian bridge from the random numbers
     c_genBB(pathCur,params)
 
+    ##====================================
+    ##PinskiDebug
+    #BBtemp=np.loadtxt("RNGBB.dat")
+    #for i in range(10001):
+    #    pathCur[i].bb=BBtemp[i]
+    ##====================================
+
     # filled the entire path struct
     FillCurState()
     c_calcLInverse(pathCur,params)
+
+    ##====================================
+    ##PinskiDebug
+    #np.savetxt("LinvG.dat",[pathCur[i].LinvG for i in range(10001)])
+    ##====================================
 
     # calculate the new positions
     c_calcSPDEpos(pathCur, pathNew, params)
@@ -317,31 +326,22 @@ for HMCIter in range(args.HMC):
     Echange=0.0
     Echange+=c_calcEnergyChange(pathCur,pathNew,params)
 
-
-    #pTop=math.sqrt(params.deltatau/2.0) * ( (pathCur[i+1].pos-2.0*pathCur[i].pos+pathCur[i-1].pos) - pathCur[i].dg +(pathOld[i+1].pos-2.0*pathOld[i].pos+pathOld[i-1].pos) - pathOld[i].dg ) + params.noisePref*pathOld[i].randlist
-
-             
-
-
-
-#    print "In0: %f 1: %f mid: %f end: %f" % (savePath[0], savePath[1],savePath[5000],savePath[NumB-1])
-#    print "  0: %f 1: %f mid: %f end: %f" % (pathCur[0].pos, pathCur[1].pos,pathCur[5000].pos, pathCur[NumB-1].pos)
-#    print "BB0: %f 1: %f mid: %f end: %f" % (pathCur[0].bb, pathCur[1].bb,pathCur[5000].bb, pathCur[NumB-1].bb)
-#    plt.plot([pathCur[i].pos for i in range(NumB-1)])
-
-
     rotatePaths()
     print "======== SPDE =========="
-    printState()
+    printState("SPDE")
 #    print "0: %f 1: %f mid: %f end: %f" % (pathCur[0].pos, pathCur[1].pos,pathCur[5000].pos, pathCur[NumB-1].pos)
 #    print "BB0: %f 1: %f mid: %f end: %f" % (pathCur[0].bb, pathCur[1].bb,pathCur[5000].bb, pathCur[NumB-1].bb)
     print "========================"
-#    plt.plot([pathCur[i].pos for i in range(NumB-1)])
-#    plt.savefig('test.png')
-#    plt.close()
 
 
-    for MDIter in range( max(1,int(args.MD*(0.5 + np.random.random()))) ):
+    MDloops=max(1,int(args.MD*(0.5 + np.random.random())))
+
+    ##====================================
+    ##PinskiDebug
+    #MDloops=int(args.MD)
+    ##====================================
+
+    for MDIter in range( MDloops ):
  
         # calculate the new positions
         c_calcMDpos(pathOld, pathCur, pathNew, params)
@@ -357,13 +357,18 @@ for HMCIter in range(args.HMC):
         # rotate the path structs
         rotatePaths()
 
-        if MDIter % 10 == 0:
-            printState()
+        if MDIter % int(int(args.MD)/5.) == 0:
+            printState("MDloop "+str(MDIter))
 
+    printState("MDloop "+str(MDloops))
 
     # Metropolis Hasitings Step
-
     if math.exp(-Echange) > np.random.random():
+    ##====================================
+    ##PinskiDebug
+    #if math.exp(-Echange) > 0.:
+    ##====================================
+
         # accept
         acc+=1
         posBasin=0
@@ -381,14 +386,14 @@ for HMCIter in range(args.HMC):
 
 
 
-    if HMCIter % 10 == 0:
+    if HMCIter % max(1,int(int(args.HMC)/float(args.WriteFiles))) == 0:
         # write/plot the path and save to file
-        writeCurPath("testPath"+str(HMCIter)+".dat")
-        plt.plot([pathCur[i].pos for i in range(NumB)])
-        plt.savefig('testplot'+str(plotiter)+'.png')
-        plt.close()
-        makeHistogram([pathCur[i].pos for i in range(NumB)],str(plotiter))
-        plotiter+=1
+        writeCurPath("Path"+str(HMCIter)+".dat")
+        #plt.plot([pathCur[i].pos for i in range(NumB)])
+        #plt.savefig('testplot'+str(plotiter)+'.png')
+        #plt.close()
+        #makeHistogram([pathCur[i].pos for i in range(NumB)],str(plotiter))
+        #plotiter+=1
 
 
 
