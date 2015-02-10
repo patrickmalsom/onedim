@@ -500,7 +500,7 @@ for HMCIter in range(args.HMC):
         plt.plot([pathCur[i].pos for i in range(NumB)])
         plt.savefig('testplot'+str(plotiter)+'.png')
         plt.close()
-        makeHistogram([pathCur[i].pos for i in range(NumB)],str(plotiter))
+        #makeHistogram([pathCur[i].pos for i in range(NumB)],str(plotiter))
         plotiter+=1
 
 
