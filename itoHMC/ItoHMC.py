@@ -10,6 +10,7 @@ import math
 import sys
 import random
 import hashlib
+import os
 #import matplotlib
 #matplotlib.use('Agg')
 #import matplotlib.pyplot as plt
@@ -189,14 +190,16 @@ def printTrans():
 def printParams():
     print '------------------------------------------------'
     print 'New HMC algorithm (finite time step) for 1D external potential'
-    print '  input file name=%s' % args.infile
-    print '  md5 hash: '+hashlib.md5(open(args.infile).read()).hexdigest()
+    print '  input file : %s' % args.infile
+    print '  md5 hash   : '+hashlib.md5(open(args.infile).read()).hexdigest()
+    print '  quadvar eps: TODO'
     print '  eps  = %f' % eps
     print '  dt   = %e' % args.deltat
     print '  dtau = %e' % args.deltatau
     print '  Nb   = %d' % NumB
     print '  HMC  = %d' % args.HMC
     print '  MD   = %d' % args.MD
+    print '  MD*h = %f' % (float(args.MD) * math.sqrt(2.0*args.deltatau))
     print "  seed = %d" % args.RNGseed
     print '------------------------------------------------'
 
@@ -286,6 +289,8 @@ printParams()
 for i in np.arange(0,len(inPath),1):
     pathCur[i].pos=inPath[i]
 
+bins=[0 for i in range(40)]
+histBins=np.arange(-2,2.1,0.1)
 
 for HMCIter in range(args.HMC):
 
@@ -301,19 +306,18 @@ for HMCIter in range(args.HMC):
 
     ##====================================
     ##PinskiDebug
-    #BBtemp=np.loadtxt("RNGBB.dat")
-    #for i in range(10001):
+    #os.system("./genBB.m 0.15 "+str(1000000+HMCIter))
+    #print "rng seed: %s" % (str(1000000+HMCIter))
+    #os.system("./quadVar.py randBBlist.dat 100")
+    #BBtemp=np.loadtxt("randBBlist.dat")
+    #for i in range(NumB):
     #    pathCur[i].bb=BBtemp[i]
+    #print [pathCur[i].bb for i in range(5)]
     ##====================================
 
     # filled the entire path struct
     FillCurState()
     c_calcLInverse(pathCur,params)
-
-    ##====================================
-    ##PinskiDebug
-    #np.savetxt("LinvG.dat",[pathCur[i].LinvG for i in range(10001)])
-    ##====================================
 
     # calculate the new positions
     c_calcSPDEpos(pathCur, pathNew, params)
@@ -321,6 +325,13 @@ for HMCIter in range(args.HMC):
     # calculate all of the struct arrays
     FillNewState()
     c_calcLInverse(pathNew,params)
+
+    #====================================
+    #PinskiDebug
+
+    #====================================
+
+
 
     # reset the energy change accumulator at the beginning of the SPDE step
     Echange=0.0
@@ -357,16 +368,20 @@ for HMCIter in range(args.HMC):
         # rotate the path structs
         rotatePaths()
 
-        if MDIter % int(int(args.MD)/5.) == 0:
+        # print the MD state 
+        # (less than 10 MD loops print all for debugging)
+        if MDloops <= 10 and MDIter != MDloops-1:
+            printState("MDloop "+str(MDIter))
+        elif MDIter != MDloops-1 and MDIter % int(int(args.MD)/5.) == 0:
             printState("MDloop "+str(MDIter))
 
-    printState("MDloop "+str(MDloops))
+    printState("MDloop "+str(MDloops-1))
 
     # Metropolis Hasitings Step
     if math.exp(-Echange) > np.random.random():
     ##====================================
     ##PinskiDebug
-    #if math.exp(-Echange) > 0.:
+    #if math.exp(-Echange) > 0.5:
     ##====================================
 
         # accept
@@ -385,6 +400,9 @@ for HMCIter in range(args.HMC):
     print "acc: %d   rej: %d" % (acc,rej)
 
 
+    bins+=(np.histogram(savePath,bins=histBins)[0])/float(NumB)/0.1
+
+
 
     if HMCIter % max(1,int(int(args.HMC)/float(args.WriteFiles))) == 0:
         # write/plot the path and save to file
@@ -394,7 +412,10 @@ for HMCIter in range(args.HMC):
         #plt.close()
         #makeHistogram([pathCur[i].pos for i in range(NumB)],str(plotiter))
         #plotiter+=1
+    sys.stdout.flush()
 
+
+np.savetxt("histData",bins/float(args.HMC))
 
 
 
