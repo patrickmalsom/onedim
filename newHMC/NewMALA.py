@@ -134,7 +134,13 @@ class Averages(ctypes.Structure):
               ('deltae', DOUBLE),
               ('dg', DOUBLE),
               ('Phi', DOUBLE),
-              ('rhs', DOUBLE)
+              ('rhs', DOUBLE),
+              ('bb', DOUBLE),
+              ('Fp', DOUBLE),
+              ('Fpp', DOUBLE),
+              ('G', DOUBLE),
+              ('gradG', DOUBLE),
+              ('LinvG', DOUBLE)
              ]
 # define the array of averages that is to be passed to the C routine
 pathType=Averages*NumB

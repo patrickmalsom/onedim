@@ -52,6 +52,12 @@ typedef struct _path
   double dg;
   double Phi;
   double rhs;
+  double bb;
+  double Fp;
+  double Fpp;
+  double G;
+  double gradG;
+  double LinvG;
 } averages;
 
 // ==================================================================================
