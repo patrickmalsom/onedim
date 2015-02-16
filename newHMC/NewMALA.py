@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# MALA routine
+# HMC 1D routine
 
 ##################### OVERVIEW #######################
 # Ito                common             Finite
@@ -69,16 +69,16 @@ import os
 
 # Argparse: command line options
 import argparse
-parser = argparse.ArgumentParser(description='New HMC algorithm (finite time step) for 1D external potential')
+parser = argparse.ArgumentParser(description='Ito HMC algorithm (finite time step) for 1D external potential')
 parser.add_argument('-i','--infile', type=str, default='inFile.dat', 
     help='input path positions;           default=inFile.dat')
-parser.add_argument('-o','--outfile', type=str, default='outFile.dat', 
-    help='output path positions;          default=outFile.dat')
+parser.add_argument('-o','--outfile', type=str, default='outPathFinal.dat', 
+    help='output path positions;          default=outPathFinal.dat')
 parser.add_argument('-T','--temperature', type=float, default=0.15, 
     help='configurational temperature;    default=0.15')
 parser.add_argument('--deltat', type=float, default=0.005, 
     help='time step along the path;       default=0.005')
-parser.add_argument('--deltatau', type=float, default=10**(-7), 
+parser.add_argument('--deltatau', type=float, default=10**(-5), 
     help='time step between paths;        default=10**(-5)')
 parser.add_argument('--Num', type=int, default=10001, 
     help='path length (num beads);        default=10001')
@@ -109,26 +109,44 @@ PINT=ctypes.POINTER(INT)
 # import the c code library
 clib=ctypes.CDLL("NewMALA-func.so")
 
-# library functions
-#c_Pot=clib.Pot
-#clib.Pot.restype = DOUBLE
+# fill average position 
 c_calcPosBar=clib.calcPosBar
+
+# fill Forces
 c_calcForces=clib.calcForces
 c_calcForcesBar=clib.calcForcesBar
+c_calcForcesPrime=clib.calcForcesPrime
 c_calcForcesPrimeBar=clib.calcForcesPrimeBar
+c_calcForcesDoublePrime=clib.calcForcesDoublePrime
 c_calcForcesDoublePrimeBar=clib.calcForcesDoublePrimeBar
+
+# fill the Ito path potential
+c_calcG=clib.calcG
+c_calcgradG=clib.calcgradG
+
+# Finite library functions
 c_calcDeltae=clib.calcDeltae
 c_calcdg=clib.calcdg
 c_calcSPDErhs=clib.calcSPDEFiniterhs
 c_calcMDrhs=clib.calcMDFiniterhs
 c_calcPhi=clib.calcPhi
-
-c_GaussElim=clib.GaussElim
 # Gaussian elimination for computing L.x=b where L is the second deriv matrix
+c_GaussElim=clib.GaussElim
 
+# Ito library functions
+c_calcLInverse=clib.LInverse
+c_calcSPDEItopos=clib.calcSPDEItopos
+c_calcMDItopos=clib.calcMDItopos
+c_genBB=clib.generateBB
+
+# Finite energy chage calculation (returns double)
 c_EChangeFinite=clib.calcEnergyChangeFinite
 clib.calcEnergyChangeFinite.restype = DOUBLE
+# Ito energy chage calculation (returns double)
+c_calcEChangeIto=clib.calcEChangeIto
+clib.calcEChangeIto.restype = DOUBLE
 
+# quadratic variation of a path
 c_quadVar=clib.quadVar
 clib.quadVar.restype = DOUBLE
 
@@ -150,6 +168,7 @@ NumL=NumB-2 # size of matrix (I+-rL)
 # ===============================================
 # C struct setup
 # ===============================================
+# IMPORTANT: These structs must EXACTLY MATCH the structs defined in the C code!
 
 # save parameters to a struct to pass to the C routines
 class Parameters(ctypes.Structure):
@@ -230,6 +249,7 @@ def GaussElim(r,bVec):
     # Print the result
     return bVec
 
+
 def rotatePaths():
     # rotate the structure pointers (old1->current0, current1->new0, new1->old0 )
     global pathOld,pathCur,pathNew
@@ -239,16 +259,23 @@ def rotatePaths():
     pathNew=temp
     del temp
 
-def FillOldState():
-    global pathOld, params
-    c_calcPosBar(pathOld, params);
-    c_calcForces(pathOld, params);
-    c_calcForcesBar(pathOld, params);
-    c_calcForcesPrimeBar(pathOld, params);
-    c_calcForcesDoublePrimeBar(pathOld, params);
-    c_calcDeltae(pathOld, params);
-    c_calcdg(pathOld, params);
-    c_calcPhi(pathOld, params);
+def FillCurIto():
+    global pathCur, params
+    c_calcForces(pathCur, params);
+    c_calcForcesPrime(pathCur, params);
+    c_calcForcesDoublePrime(pathCur, params);
+    c_calcG(pathCur,params);
+    c_calcgradG(pathCur,params);
+    c_calcLInverse(pathCur, params);
+
+def FillNewIto():
+    global pathNew, params
+    c_calcForces(pathNew, params);
+    c_calcForcesPrime(pathNew, params);
+    c_calcForcesDoublePrime(pathNew, params);
+    c_calcG(pathNew,params);
+    c_calcgradG(pathNew,params);
+    c_calcLInverse(pathNew, params);
 
 def FillCurFinite():
     global pathCur, params
@@ -280,21 +307,21 @@ def saveStartingState(pathSave):
 
 def printState(identifier):
     print "%s" % (identifier),
-    print "qv: %1.6f" % c_quadVar(pathCur,params),
-    print "\tDelta E: %1.6f" % (Echange*2.0*eps/deltat) ,
-    print "\tExp(-dE*dt/2/eps): %1.6f" % math.exp(-Echange)
+    print "\tqv: %1.6f" % c_quadVar(pathCur,params),
+    print "\tDelta E: %1.15f" % (Echange*2.*eps/deltat) ,
+    print "\tExp(-dE*dt/2/eps): %1.15f" % math.exp(-Echange)
 
 #def printTrans():
 #    global pathNew
-#
+
 #    transCt=0
 #    xstart=pathNew[0].pos
-#
+
 #    basinLeft=-2/3.
 #    basinRight=4/3.
-#
+
 #    basin=basinLeft
-#
+
 #    for i in xrange(NumB):
 #        if (pathNew[i].pos >4/3.) and (basin == basinLeft):
 #            basin=basinRight
@@ -319,9 +346,22 @@ def printParams(path,params):
     print "  seed = %d" % args.RNGseed
     print '------------------------------------------------'
 
+def quadraticVariation(path,params):
+    sumxx = sum([ (path[i+1].pos-path[i].pos)**2 for i in range(params.NumB-1) ])
+    return sumxx/2.0/params.deltat/params.NumB
+
 def writeCurPath(fileName):
     global pathCur
     np.savetxt(fileName,np.array([pathCur[i].pos for i in range(NumB)]))
+
+def initializeParams(params):
+    params.deltat=deltat
+    params.invdt=invdt
+    params.eps=eps
+    params.deltatau=deltatau
+    params.noisePref=noisePref
+    params.r=r
+    params.NumB=NumB
 
 def setRNGseed():
   # if there is no rng set on cmd line, generate a random one
@@ -329,15 +369,6 @@ def setRNGseed():
     args.RNGseed = random.SystemRandom().randint(1,1000000)
   # set the random seed of numpy
   np.random.seed(args.RNGseed)
-
-def initializeParams(params):
-  params.deltat=deltat
-  params.invdt=invdt
-  params.eps=eps
-  params.deltatau=deltatau
-  params.noisePref=noisePref
-  params.r=r
-  params.NumB=NumB
 
 def calcSPDEFinitePos(path0,path1,params):
     # calculate the rhs vecor in the notes
@@ -383,14 +414,9 @@ def printPosBasin():
             posBasin+=1
     print "posBasin: %i" % (posBasin)
 
-def quadraticVariation(path,params):
-    sumxx = sum([ (path[i+1].pos-path[i].pos)**2 for i in range(params.NumB-1) ])
-    return sumxx/2.0/params.deltat/params.NumB
-
 # ===============================================
 # MAIN loop
 # ===============================================
-
 # set the seed for the random number generator
 setRNGseed()
 
@@ -428,6 +454,7 @@ rej=0
 # ============ SPDE/HMC LOOP =================
 for HMCIter in range(args.HMC):
 
+
     # save the current path to savePath in case of rejection
     for i in range(NumB):
         savePath[i]=pathCur[i].pos
@@ -435,6 +462,15 @@ for HMCIter in range(args.HMC):
     # generate the noise vector (random gaussian distributed list)
     for i in np.arange(1,len(inPath)-1,1):
         pathCur[i].randlist=np.random.normal(0,1)
+
+
+
+
+
+
+
+
+
 
     # calculate the current state 
     FillCurFinite()
@@ -449,6 +485,20 @@ for HMCIter in range(args.HMC):
     Echange=0.0
     Echange+=c_EChangeFinite(pathCur,pathNew,params)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     rotatePaths()
     printState("SPDE")
 
@@ -459,6 +509,18 @@ for HMCIter in range(args.HMC):
     #for MDIter in range( max(1,int(args.MD*(0.5 + np.random.random()))) ):
     for MDIter in range( MDloops ):
  
+
+
+
+
+
+
+
+
+
+
+
+
         # calculate the new postions in pathNew
         calcMDFinitePos(pathOld,pathCur,pathNew,params)
 
@@ -466,6 +528,17 @@ for HMCIter in range(args.HMC):
         FillNewFinite()
 
         Echange+=c_EChangeFinite(pathCur,pathNew,params)
+
+
+
+
+
+
+
+
+
+
+
 
         # rotate the path structs
         rotatePaths()
