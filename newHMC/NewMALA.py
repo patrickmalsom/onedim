@@ -9,9 +9,12 @@ import numpy as np
 import math
 import sys
 import random
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+import hashlib
+import os
+##plotting with text interface
+#import matplotlib
+#matplotlib.use('Agg')
+#import matplotlib.pyplot as plt
 
 # Argparse: command line options
 import argparse
@@ -26,7 +29,7 @@ parser.add_argument('-T','--temperature', type=float, default=0.15,
     help='configurational temperature;    default=0.15')
 parser.add_argument('--deltat', type=float, default=0.005, 
     help='time step along the path;       default=0.005')
-parser.add_argument('--deltatau', type=float, default=10**(-5), 
+parser.add_argument('--deltatau', type=float, default=10**(-7), 
     help='time step between paths;        default=10**(-5)')
 parser.add_argument('--Num', type=int, default=10001, 
     help='path length (num beads);        default=10001')
@@ -34,13 +37,11 @@ parser.add_argument('--HMC', type=int, default=2,
     help='HMC loops (SDE+MD+MC);          default=2')
 parser.add_argument('--MD', type=int, default=150, 
     help='MD steps per full HMC;          default=150')
+parser.add_argument('--WriteFiles', type=int, default=5, 
+    help='Number of files to write;       default=5')
 parser.add_argument('--RNGseed', type=int, 
     help='random number seed;             default=random')
 args = parser.parse_args()
-
-
-# numpy.random.seed(random.SystemRandom().randint(1,100000000000))
-
 
 # python profiler
 import cProfile, pstats, StringIO
@@ -140,25 +141,6 @@ class Averages(ctypes.Structure):
 # define the array of averages that is to be passed to the C routine
 pathType=Averages*NumB
 
-
-# ===============================================
-# Function declarations
-# ===============================================
-#def Pot(x):
-#    return 1.+ x*x*(-3.375+x * (1.6875 +x * (2.84766 +(-2.84766+0.711914 * x) * x)))
-
-#def Force(x):
-#    return x * (6.75 + x * (-5.0625 + x * (-11.3906 + (14.2383 - 4.27148 * x) * x)))
-
-#def ForcePrime(x):
-#    return 6.75 + x * (-10.125 + x * (-34.1719 + (56.9531 - 21.3574 * x) * x))
-
-#def g(xm1,x0,x1):
-#    g1st=ForcePrime(x0)*Force((x0))
-#    g2nd=-0.5*invdt*(Force((x1))-2.0*Force((x0))+Force((xm1)))
-#    g3rd=-0.5*invdt*ForcePrime(x0)*(x1-2.0*x0+xm1)
-#    return g1st+g2nd+g3rd
-
 def GaussElim(r,bVec):
     # Gaussian elimination for computing L.x=b where
     #   L is tridiagonal matrix
@@ -249,7 +231,8 @@ def saveStartingState(pathSave):
         pathSave[i]=pathCur[i].pos
 
 
-def printState():
+def printState(identifier):
+    print "%s" % (identifier),
     print "qv: %1.6f" % c_quadVar(pathCur,params),
     print "\tDelta E: %1.6f" % Echange ,
     print "\tExp(-dE*dt/2/eps): %1.6f" % math.exp(-Echange*deltat/(2.0*eps))
@@ -276,36 +259,40 @@ def printTrans():
 def printParams():
     print '------------------------------------------------'
     print 'New HMC algorithm (finite time step) for 1D external potential'
-    print 'configurational temperature=%f' % eps
-    print 'delta t=%e' % args.deltat
-    print 'delta tau=%e' % args.deltatau
-    print 'path length=%d' % NumB
-    print 'HMC loops=%d' % args.HMC
-    print 'MD loops=%d' % args.MD
-    print "RNG seed: %d" % args.RNGseed
+    print '  input file : %s' % args.infile
+    print '  md5 hash   : '+hashlib.md5(open(args.infile).read()).hexdigest()
+    print '  quadvar eps: TODO'
+    print '  eps  = %f' % eps
+    print '  dt   = %e' % args.deltat
+    print '  dtau = %e' % args.deltatau
+    print '  Nb   = %d' % NumB
+    print '  HMC  = %d' % args.HMC
+    print '  MD   = %d' % args.MD
+    print '  MD*h = %f' % (float(args.MD) * math.sqrt(2.0*args.deltatau))
+    print "  seed = %d" % args.RNGseed
     print '------------------------------------------------'
 
 def writeCurPath(fileName):
     global pathCur
     np.savetxt(fileName,np.array([pathCur[i].pos for i in range(NumB)]))
 
-def makeHistogram(path,pltname):
+#def makeHistogram(path,pltname):
 
-    #calculate the partition function for use in the plots
-    expPot = lambda x: math.exp(-(((3.*x+2.)**2 * (3.*x-4.)**4)/1024.)/0.15)
-    Z0=1.1229622054
-    ### mathematica code to find partition function normalization
-    #NIntegrate[Exp[-((3 x + 2)^2 * (3 x - 4)^4/1024)/0.15], {x, -100, 100}]
+#    #calculate the partition function for use in the plots
+#    expPot = lambda x: math.exp(-(((3.*x+2.)**2 * (3.*x-4.)**4)/1024.)/0.15)
+#    Z0=1.1229622054
+#    ### mathematica code to find partition function normalization
+#    #NIntegrate[Exp[-((3 x + 2)^2 * (3 x - 4)^4/1024)/0.15], {x, -100, 100}]
 
-    HistData=[0 for i in range(400)]
-    for i in range(len(path)):
-        HistData[int((path[i]+1.5)*100)]+=1
+#    HistData=[0 for i in range(400)]
+#    for i in range(len(path)):
+#        HistData[int((path[i]+1.5)*100)]+=1
 
-    invPathLen=1.0/(len(path)*0.005)
-    plt.plot([i for i in np.linspace(-1.5,2.5,400)],[expPot(i)/Z0 for i in np.linspace(-1.5,2.5,400)])
-    plt.plot([i for i in np.linspace(-1.5,2.5,400)],np.array(HistData)*invPathLen)
-    plt.savefig('Histplot'+pltname+'.png')
-    plt.close()
+#    invPathLen=1.0/(len(path)*0.005)
+#    plt.plot([i for i in np.linspace(-1.5,2.5,400)],[expPot(i)/Z0 for i in np.linspace(-1.5,2.5,400)])
+#    plt.plot([i for i in np.linspace(-1.5,2.5,400)],np.array(HistData)*invPathLen)
+#    plt.savefig('Histplot'+pltname+'.png')
+#    plt.close()
 
 # ===============================================
 # Unit Tests
@@ -449,11 +436,18 @@ for HMCIter in range(args.HMC):
 
     rotatePaths()
     print "======== SPDE =========="
-    printState()
+    printState("SPDE")
     print "========================"
 
 
-    for MDIter in range( max(1,int(args.MD*(0.5 + np.random.random()))) ):
+    #MDloops=max(1,int(args.MD*(0.5 + np.random.random())))
+    ##====================================
+    ##PinskiDebug
+    MDloops=int(args.MD)
+    ##====================================
+
+    #for MDIter in range( max(1,int(args.MD*(0.5 + np.random.random()))) ):
+    for MDIter in range( MDloops ):
  
         # calculate the current state 
         c_calcMDrhs(pathOld, pathCur, params)
@@ -470,8 +464,14 @@ for HMCIter in range(args.HMC):
         # rotate the path structs
         rotatePaths()
 
-        if MDIter % 10 == 0:
-            printState()
+        # print the MD state 
+        # (less than 10 MD loops print all for debugging)
+        if MDloops <= 10 and MDIter != MDloops-1:
+            printState("MDloop "+str(MDIter))
+        elif MDIter != MDloops-1 and MDIter % int(int(args.MD)/5.) == 0:
+            printState("MDloop "+str(MDIter))
+
+    printState("MDloop "+str(MDloops-1))
 
 
     # Metropolis Hasitings Step
@@ -497,9 +497,9 @@ for HMCIter in range(args.HMC):
     if HMCIter % 10 == 0:
         # write/plot the path and save to file
         writeCurPath("testPath"+str(HMCIter)+".dat")
-        plt.plot([pathCur[i].pos for i in range(NumB)])
-        plt.savefig('testplot'+str(plotiter)+'.png')
-        plt.close()
+        #plt.plot([pathCur[i].pos for i in range(NumB)])
+        #plt.savefig('testplot'+str(plotiter)+'.png')
+        #plt.close()
         #makeHistogram([pathCur[i].pos for i in range(NumB)],str(plotiter))
         plotiter+=1
 
