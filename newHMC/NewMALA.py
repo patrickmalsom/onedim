@@ -134,7 +134,7 @@ c_calcPhi=clib.calcPhi
 c_GaussElim=clib.GaussElim
 # Gaussian elimination for computing L.x=b where L is the second deriv matrix
 
-c_calcEnergyChange=clib.calcEnergyChange
+c_EChangeFinite=clib.calcEnergyChange
 clib.calcEnergyChange.restype = DOUBLE
 
 c_quadVar=clib.quadVar
@@ -255,7 +255,7 @@ def FillOldState():
     c_calcdg(pathOld, params);
     c_calcPhi(pathOld, params);
 
-def FillCurState():
+def FillCurFinite():
     global pathCur, params
     c_calcPosBar(pathCur, params);
     c_calcForces(pathCur, params);
@@ -266,7 +266,7 @@ def FillCurState():
     c_calcdg(pathCur, params);
     c_calcPhi(pathCur, params);
 
-def FillNewState():
+def FillNewFinite():
     global pathNew, params
     c_calcPosBar(pathNew, params);
     c_calcForces(pathNew, params);
@@ -289,24 +289,24 @@ def printState(identifier):
     print "\tDelta E: %1.6f" % (Echange*2.0*eps/deltat) ,
     print "\tExp(-dE*dt/2/eps): %1.6f" % math.exp(-Echange)
 
-def printTrans():
-    global pathNew
-
-    transCt=0
-    xstart=pathNew[0].pos
-
-    basinLeft=-2/3.
-    basinRight=4/3.
-
-    basin=basinLeft
-
-    for i in xrange(NumB):
-        if (pathNew[i].pos >4/3.) and (basin == basinLeft):
-            basin=basinRight
-        if (pathNew[i].pos < -2/3.) and (basin == basinRight):
-            basin=basinLeft
-            transCt+=1
-    print "Transitions: %d" % (transCt)
+#def printTrans():
+#    global pathNew
+#
+#    transCt=0
+#    xstart=pathNew[0].pos
+#
+#    basinLeft=-2/3.
+#    basinRight=4/3.
+#
+#    basin=basinLeft
+#
+#    for i in xrange(NumB):
+#        if (pathNew[i].pos >4/3.) and (basin == basinLeft):
+#            basin=basinRight
+#        if (pathNew[i].pos < -2/3.) and (basin == basinRight):
+#            basin=basinLeft
+#            transCt+=1
+#    print "Transitions: %d" % (transCt)
 
 def printParams():
     print '------------------------------------------------'
@@ -401,35 +401,97 @@ class TestClass:
 #    plt.plot(tempPath)
 #    plt.show()
 
+def setRNGseed():
+  # if there is no rng set on cmd line, generate a random one
+  if args.RNGseed is None:
+    args.RNGseed = random.SystemRandom().randint(1,1000000)
+  # set the random seed of numpy
+  np.random.seed(args.RNGseed)
+
+def initializeParams(params):
+  params.deltat=deltat
+  params.invdt=invdt
+  params.eps=eps
+  params.deltatau=deltatau
+  params.noisePref=noisePref
+  params.r=r
+  params.NumB=NumB
+
+def calcSPDEFinitePos(path0,path1,params):
+    # calculate the rhs vecor in the notes
+    # the struct MUST be filled before this step
+    c_calcSPDErhs(path0, params)
+
+    # generates the pathCur positions by doing 
+    # gaussian elim on the rhs vector
+    c_GaussElim(path0,path1,params)
+
+def calcMDFinitePos(path0,path1,path2,params):
+    # calculate the current state 
+    c_calcMDrhs(path0, path1, params)
+
+    # generate the pathNew positions
+    c_GaussElim(path1,path2,params)
+
+def printStateMD(MDloops):
+    # (less than 10 MD loops print all for debugging)
+    if MDloops <= 10 and MDIter != MDloops-1:
+        printState("MDloop "+str(MDIter))
+    elif MDIter != MDloops-1 and MDIter % int(int(args.MD)/5.) == 0:
+        printState("MDloop "+str(MDIter))
+
+def MHMC_test(Echange,acc,rej):
+    global pathCur
+    global pathNew
+    if math.exp(-Echange) > np.random.random():
+        # accept
+        acc+=1
+    else:
+        # reject
+        rej+=1
+        # set current path postions to the saved path
+        for i in range(NumB):
+            pathCur[i].pos=savePath[i]
+    print "acc: %d   rej: %d" % (acc,rej)
+    
+def printPosBasin():
+    posBasin=0
+    for i in xrange(NumB):
+        if pathCur[i].pos > 0:
+            posBasin+=1
+    print "posBasin: %i" % (posBasin)
+
 # ===============================================
 # MAIN loop
+# ===============================================
 
-if args.RNGseed is None:
-  args.RNGseed = random.SystemRandom().randint(1,1000000)
+# set the seed for the random number generator
+setRNGseed()
 
-np.random.seed(args.RNGseed)
-
+# read the input path specified on the cmd line
 inPath=np.loadtxt(args.infile)
 
-# ===============================================
-# Initializing the structs
-#declare the params struct
+# Initialize the structs for params and paths
+#   need one parameter struct (constants)
+#   need 3 path structs (old cur new)
 params=paramType()
-params.deltat=deltat
-params.invdt=invdt
-params.eps=eps
-params.deltatau=deltatau
-params.noisePref=noisePref
-params.r=r
-params.NumB=NumB
-
 pathOld=pathType()
 pathCur=pathType()
 pathNew=pathType()
 
+# fill the params struct with the run parameters
+initializeParams(params)
+# print the run parameters
+# TODO: change this to use the params struct
+printParams()
+
+# set the positions in pathCur to be inPath positions
+for i in np.arange(0,len(inPath),1):
+    pathCur[i].pos=inPath[i]
 
 # output storage space
 outPath=np.array([0.0 for i in np.arange(0,len(inPath),1)])
+
 # save path (for rejection) storage space
 savePath=np.array([0.0 for i in np.arange(0,len(inPath),1)])
 
@@ -437,54 +499,29 @@ savePath=np.array([0.0 for i in np.arange(0,len(inPath),1)])
 acc=0
 rej=0
 
-plotiter=100000
-
-## start the profiler
-#pr = cProfile.Profile()
-#pr.enable()
-
-printParams()
-
-for i in np.arange(0,len(inPath),1):
-    pathCur[i].pos=inPath[i]
-
-
+# ============ SPDE/HMC LOOP =================
 for HMCIter in range(args.HMC):
 
     # save the current path to savePath in case of rejection
     for i in range(NumB):
         savePath[i]=pathCur[i].pos
 
-    # noise vector
+    # generate the noise vector (random gaussian distributed list)
     for i in np.arange(1,len(inPath)-1,1):
         pathCur[i].randlist=np.random.normal(0,1)
-    #printState(pathOld,pathCur,pathNew,1)
-    randnumtemplist=[pathCur[i].randlist for i in range(NumB)]
 
     # calculate the current state 
+    FillCurFinite()
 
-    FillCurState()
-
-    # filled the entire path struct
-    c_calcSPDErhs(pathCur, params)
-
-    # generates the pathCur positions
-    c_GaussElim(pathCur,pathNew,params)
+    # calculate the new position vector using the current state
+    calcSPDEFinitePos(pathCur,pathNew,params)
 
     # calculate all of the struct arrays
-    FillNewState()
+    FillNewFinite()
 
     # reset the energy change accumulator at the beginning of the SPDE step
     Echange=0.0
-    Echange+=c_calcEnergyChange(pathCur,pathNew,params)
-
-
-    #pTop=math.sqrt(params.deltatau/2.0) * ( (pathCur[i+1].pos-2.0*pathCur[i].pos+pathCur[i-1].pos) - pathCur[i].dg +(pathOld[i+1].pos-2.0*pathOld[i].pos+pathOld[i-1].pos) - pathOld[i].dg ) + params.noisePref*pathOld[i].randlist
-
-             
-
-
-
+    Echange+=c_EChangeFinite(pathCur,pathNew,params)
 
     rotatePaths()
     print "======== SPDE =========="
@@ -492,99 +529,42 @@ for HMCIter in range(args.HMC):
     print "========================"
 
 
+    # ============ MD LOOP =================
     #MDloops=max(1,int(args.MD*(0.5 + np.random.random())))
-    ##====================================
-    ##PinskiDebug
     MDloops=int(args.MD)
-    ##====================================
 
     #for MDIter in range( max(1,int(args.MD*(0.5 + np.random.random()))) ):
     for MDIter in range( MDloops ):
  
-        # calculate the current state 
-        c_calcMDrhs(pathOld, pathCur, params)
+        # calculate the new postions in pathNew
+        calcMDFinitePos(pathOld,pathCur,pathNew,params)
 
-        # generate the pathNew positions
-        c_GaussElim(pathCur,pathNew,params)
+        # calculate all of the struct arrays in pathNew
+        FillNewFinite()
 
-        # calculate all of the struct arrays
-        FillNewState()
+        Echange+=c_EChangeFinite(pathCur,pathNew,params)
 
-        Echange+=c_calcEnergyChange(pathCur,pathNew,params)
-
- 
         # rotate the path structs
         rotatePaths()
 
-        # print the MD state 
-        # (less than 10 MD loops print all for debugging)
-        if MDloops <= 10 and MDIter != MDloops-1:
-            printState("MDloop "+str(MDIter))
-        elif MDIter != MDloops-1 and MDIter % int(int(args.MD)/5.) == 0:
-            printState("MDloop "+str(MDIter))
-
+        # print some of the MD states (~10 total)
+        printStateMD(MDloops)
+        
+    # print the run state for the final MD step
     printState("MDloop "+str(MDloops-1))
 
 
-    # Metropolis Hasitings Step
-
-    if math.exp(-Echange) > np.random.random():
-        # accept
-        acc+=1
-        posBasin=0
-        for i in xrange(NumB):
-            if pathCur[i].pos > 0:
-                posBasin+=1
-        print "posBasin: %i" % (posBasin)
-        printTrans()
-    else:
-        rej+=1
-        for i in range(NumB):
-            pathCur[i].pos=savePath[i]
-
-    print "acc: %d   rej: %d" % (acc,rej)
+    # Metropolis Hasitings Monte-Carlo
+    MHMC_test(Echange,acc,rej)
+    printPosBasin()
 
 
-
-    if HMCIter % 10 == 0:
-        # write/plot the path and save to file
-        writeCurPath("testPath"+str(HMCIter)+".dat")
-        #plt.plot([pathCur[i].pos for i in range(NumB)])
-        #plt.savefig('testplot'+str(plotiter)+'.png')
-        #plt.close()
-        #makeHistogram([pathCur[i].pos for i in range(NumB)],str(plotiter))
-        plotiter+=1
+    if HMCIter % max(1,int(int(args.HMC)/float(args.WriteFiles))) == 0:
+        writeCurPath("outPath"+str(HMCIter)+".dat")
+    sys.stdout.flush()
 
 
-
-
-
-
-
-
-#dgTemp=[pathOld[i].dg for i in range(NumB)]
-#plt.plot(dgTemp)
-#plt.show()
-
-#hessTemp=[pathOld[i].Hessian for i in range(NumB)]
-#plt.plot(hessTemp)
-#plt.show()
-
-## profiler stop
-#pr.disable()
-#s = StringIO.StringIO()
-#sortby = 'cumulative'
-#ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-#ps.print_stats()
-#print s.getvalue()
-
-# test to see if the path is still correct
+# print the final path to file
 for i in np.arange(0,len(inPath),1):
     outPath[i]=pathCur[i].pos
-
-#if (np.loadtxt("outPathfive.dat") == outPath).all():
-#    print "SUCCESS!"
-#else:
-#    print "FAIL"
-
 np.savetxt(args.outfile,outPath)
