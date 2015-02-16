@@ -107,7 +107,7 @@ INT=ctypes.c_int
 PINT=ctypes.POINTER(INT)
 
 # import the c code library
-clib=ctypes.CDLL("NewMALA-func.so")
+clib=ctypes.CDLL("onedimHMC.so")
 
 # fill average position 
 c_calcPosBar=clib.calcPosBar
