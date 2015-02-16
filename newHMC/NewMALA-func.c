@@ -145,8 +145,6 @@ double ForceDoublePrime(double x){
 //  }
 //}
 //// ==================================================================================
-
-// ==================================================================================
 void calcPosBar(averages* path, parameters params){
   // fill out the Potential variables for the struce
   // initial params must have the positions filled
@@ -157,20 +155,16 @@ void calcPosBar(averages* path, parameters params){
     path[i].posBar = (path[i].pos+path[i+1].pos)*0.5;
   }
 }
-
-
 // ==================================================================================
 void calcForces(averages* path, parameters params){
   // fill out the Force variables for the struce
   // initial params must have the positions filled
   int i;
-
   #pragma omp parallel for
   for(i=0;i<params.NumB;i++){
     path[i].F = Force(path[i].pos);
   }
 }
-
 // ==================================================================================
 void calcForcesBar(averages* path, parameters params){
   int i;
@@ -179,7 +173,14 @@ void calcForcesBar(averages* path, parameters params){
     path[i].Fbar = Force(path[i].posBar);
   }
 }
-
+// ==================================================================================
+void calcForcesPrime(averages* path, parameters params){
+  int i;
+  #pragma omp parallel for
+  for(i=0;i<params.NumB;i++){
+    path[i].Fp = ForcePrime(path[i].pos);
+  }
+}
 // ==================================================================================
 void calcForcesPrimeBar(averages* path, parameters params){
   int i;
@@ -190,6 +191,14 @@ void calcForcesPrimeBar(averages* path, parameters params){
 }
 
 // ==================================================================================
+void calcForcesDoublePrime(averages* path, parameters params){
+  int i;
+  #pragma omp parallel for
+  for(i=0;i<params.NumB;i++){
+    path[i].Fpp = ForceDoublePrime(path[i].pos);
+  }
+}
+// ==================================================================================
 void calcForcesDoublePrimeBar(averages* path, parameters params){
   int i;
   #pragma omp parallel for
@@ -197,22 +206,18 @@ void calcForcesDoublePrimeBar(averages* path, parameters params){
     path[i].Fppbar = ForceDoublePrime(path[i].posBar);
   }
 }
-
 // ==================================================================================
 void calcDeltae(averages* path, parameters params){
   // find the change in energy for each point along the path
   int i;
-
   #pragma omp parallel for
   for(i=0;i<params.NumB-1;i++){
     //path[i].deltae = path[i+1].U - path[i].U + path[i].Fbar*(path[i+1].pos -path[i].pos);
     path[i].deltae = 0.0;
   }
 }
-
-
 // ==================================================================================
-void calcSPDErhs(averages* path, parameters params){
+void calcSPDEFiniterhs(averages* path, parameters params){
   // calculate the right hand side vector for the SPDE
   // including the boundary conditions from the LHS matrix multiplication
   // note that the i_th position is (i+1)
@@ -236,7 +241,7 @@ void calcSPDErhs(averages* path, parameters params){
 
 
 // ==================================================================================
-void calcMDrhs(averages* path0, averages* path1, parameters params){
+void calcMDFiniterhs(averages* path0, averages* path1, parameters params){
   int i;
   
   #pragma omp parallel for
@@ -256,7 +261,7 @@ void calcMDrhs(averages* path0, averages* path1, parameters params){
 
 
 // ==================================================================================
-double calcEnergyChange(averages* path0, averages* path1, parameters params){
+double calcEnergyChangeFinite(averages* path0, averages* path1, parameters params){
   int i;
   //temp storage for the sum of Phi for path0
   double Phi0=0.0;
@@ -378,29 +383,6 @@ double quadVar(averages* path, parameters params){
 // ==================================================================================
 // calcdg: Calculate the sum of the energy error between at each time interval
 // (for a specific itegration method) for the entire path
-// ==================================================================================
-// Integration Methods:
-//   G: Ito-Girsanov continuous time
-//   LF: Leap Frog
-//   MP: Mid Point
-//   S: Simpsons
-// Energy factor:
-//   de: use the whole energy change
-//   de0: set energy change to zero
-//   absde: absolute value de as energy change (broken)
-// Available methods:
-// { G_de, LF_de0, LF_de, MP_de0, MP_de, MP_absde, S_de0, S_de }
-// ==================================================================================
-void calcdg_G_de0(averages* path, parameters params){
-  int i;
-  #pragma omp parallel for
-  for(i=1;i<params.NumB-1;i++){
-    path[i].dg = ForcePrime(path[i].pos)*path[i].F + params.eps * ForceDoublePrime(path[i].pos);
-  }
-  
-}
-
-// ==================================================================================
 void calcdg(averages* path, parameters params){
   // calculate dG/dx for the structure
   // intial positions/force/Hessian must be filled
@@ -410,8 +392,6 @@ void calcdg(averages* path, parameters params){
   for(i=1;i<params.NumB-1;i++){
     path[i].dg  = 0.5 *(path[i].Fbar *path[i].Fpbar + params.eps * path[i].Fppbar /(1.0 - 0.5* params.deltat * path[i].Fpbar));
     path[i].dg += 0.5 *(path[i-1].Fbar *path[i-1].Fpbar + params.eps * path[i-1].Fppbar /(1.0 - 0.5* params.deltat * path[i-1].Fpbar));
-    //path[i].dg += copysign(1.0,path[i].deltae) * params.invdt *(path[i].F - path[i].Fbar + 0.5 * path[i].Fpbar*(path[i+1].pos - path[i].pos) );
-    //path[i].dg += copysign(1.0,path[i-1].deltae) * params.invdt *(-path[i].F + path[i-1].Fbar + 0.5 * path[i-1].Fpbar*(path[i].pos - path[i-1].pos) );
   }
 }
 
@@ -424,7 +404,7 @@ void calcPhi(averages* path, parameters params){
   #pragma omp parallel for private(Psi)
   for(i=0;i<params.NumB-1;i++){
     Psi = 0.5*path[i].Fbar*path[i].Fbar - 2.0 * params.eps * params.invdt * log(1.0 - params.deltat*0.5*path[i].Fpbar);
-    path[i].Phi = Psi ;//+ fabs(path[i].deltae)*params.invdt;
+    path[i].Phi = Psi ;
     
   }
 }

@@ -119,15 +119,15 @@ c_calcForcesPrimeBar=clib.calcForcesPrimeBar
 c_calcForcesDoublePrimeBar=clib.calcForcesDoublePrimeBar
 c_calcDeltae=clib.calcDeltae
 c_calcdg=clib.calcdg
-c_calcSPDErhs=clib.calcSPDErhs
-c_calcMDrhs=clib.calcMDrhs
+c_calcSPDErhs=clib.calcSPDEFiniterhs
+c_calcMDrhs=clib.calcMDFiniterhs
 c_calcPhi=clib.calcPhi
 
 c_GaussElim=clib.GaussElim
 # Gaussian elimination for computing L.x=b where L is the second deriv matrix
 
-c_EChangeFinite=clib.calcEnergyChange
-clib.calcEnergyChange.restype = DOUBLE
+c_EChangeFinite=clib.calcEnergyChangeFinite
+clib.calcEnergyChangeFinite.restype = DOUBLE
 
 c_quadVar=clib.quadVar
 clib.quadVar.restype = DOUBLE
