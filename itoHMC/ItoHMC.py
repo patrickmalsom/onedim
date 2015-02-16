@@ -1,6 +1,57 @@
 #!/usr/bin/env python
 
-# Ito HMC
+# HMC 1D routine
+
+##################### OVERVIEW #######################
+# Ito                common             Finite
+# ---                ------             ------
+#                    Import modules
+#                    argparse
+#                    ctypes
+#                    constant defns
+#                    struct defns
+#                    functions
+#                      - rorate paths
+#                      - fill states (x3)
+#                      - saveStartState
+#                      - print funcs
+#                      - writeCurPath
+#       ************* MAIN LOOP **************
+#                    setRNGseed
+#                    readInPath
+#                    declare consts
+#                    declare structs
+#                    print params
+#                    pathCur.pos=inPath
+#       ************* HMC LOOP **************
+#                    save path
+#                <-- gen noise -->
+# gen BB   
+# fillCurIto                            fillCurFinite
+# calcSPDEItoPos                        calcSPDEFinitePos
+# ---                                       - calcSPDEFiniteRHS
+# ---                                       - Gaussian Elim
+# FillNewIto                            fillNewFinite
+# EchangeIto -->                    <-- EchangeFinite
+#                    rotateStruct
+#                    printState
+#       ************* MD LOOP ***************
+#                <-- random MD loops -->
+# calcMDItoPos                          calcMDFinitePos
+# ---                                       - calcMDFiniteRHS
+# ---                                       - Gaussian Elim
+# fillNewIto                            FillNewFinite
+# EchangeIto -->                    <-- EchangeFinite
+#                    rotateStruct
+#                    printState
+#       ************* MHMC  ***************
+#                    if(-dE>rand):
+#                      acc
+#                    else:
+#                      rej
+#                    writePaths
+#       ************* End MAIN LOOP ***************
+#                    write final path
 
 # ===============================================
 # Import and setup libraries
@@ -11,6 +62,7 @@ import sys
 import random
 import hashlib
 import os
+##plotting with text interface
 #import matplotlib
 #matplotlib.use('Agg')
 #import matplotlib.pyplot as plt
@@ -18,8 +70,6 @@ import os
 # Argparse: command line options
 import argparse
 parser = argparse.ArgumentParser(description='Ito HMC algorithm (finite time step) for 1D external potential')
-parser.add_argument('-t','--test', action="store_true",
-    help='run py.test unit tests')
 parser.add_argument('-i','--infile', type=str, default='inFile.dat', 
     help='input path positions;           default=inFile.dat')
 parser.add_argument('-o','--outfile', type=str, default='outPathFinal.dat', 
@@ -45,12 +95,6 @@ args = parser.parse_args()
 # python profiler
 import cProfile, pstats, StringIO
 
-# if testing mode flag is given
-if args.test:
-    # py.test unit testing suite
-    import pytest
-    pytest.main("NewMALA.py")
-
 # ===============================================
 # Ctypes
 # ===============================================
@@ -65,29 +109,44 @@ PINT=ctypes.POINTER(INT)
 # import the c code library
 clib=ctypes.CDLL("ItoHMC.so")
 
-# library functions
-#c_Pot=clib.Pot
-#clib.Pot.restype = DOUBLE
-#c_calcPotentials=clib.calcPotentials
+# fill average position 
 c_calcPosBar=clib.calcPosBar
+
+# fill Forces
 c_calcForces=clib.calcForces
 c_calcForcesBar=clib.calcForcesBar
 c_calcForcesPrime=clib.calcForcesPrime
 c_calcForcesPrimeBar=clib.calcForcesPrimeBar
 c_calcForcesDoublePrime=clib.calcForcesDoublePrime
 c_calcForcesDoublePrimeBar=clib.calcForcesDoublePrimeBar
+
+# fill the Ito path potential
 c_calcG=clib.calcG
 c_calcgradG=clib.calcgradG
 
-c_calcLInverse=clib.LInverse
+# Finite library functions
+c_calcDeltae=clib.calcDeltae
+c_calcdg=clib.calcdg
+c_calcSPDErhs=clib.calcSPDEFiniterhs
+c_calcMDrhs=clib.calcMDFiniterhs
+c_calcPhi=clib.calcPhi
+# Gaussian elimination for computing L.x=b where L is the second deriv matrix
+c_GaussElim=clib.GaussElim
 
+# Ito library functions
+c_calcLInverse=clib.LInverse
 c_calcSPDEItopos=clib.calcSPDEItopos
 c_calcMDItopos=clib.calcMDItopos
 c_genBB=clib.generateBB
 
+# Finite energy chage calculation (returns double)
+c_EChangeFinite=clib.calcEnergyChangeFinite
+clib.calcEnergyChangeFinite.restype = DOUBLE
+# Ito energy chage calculation (returns double)
 c_calcEChangeIto=clib.calcEChangeIto
 clib.calcEChangeIto.restype = DOUBLE
 
+# quadratic variation of a path
 c_quadVar=clib.quadVar
 clib.quadVar.restype = DOUBLE
 
@@ -152,6 +211,43 @@ class Averages(ctypes.Structure):
 # define the array of averages that is to be passed to the C routine
 pathType=Averages*NumB
 
+def GaussElim(r,bVec):
+    # Gaussian elimination for computing L.x=b where
+    #   L is tridiagonal matrix
+    #     mainDiag: 1+2r
+    #     upper(lower)Diag: -r
+    #   b is known vector: bVec is input
+    #   x is unknown vector: returned at the end
+
+    Num=len(bVec)
+    
+    al=[-r for i in range(Num-1)]
+    am=[(1.0+2.0*r) for i in range(Num)]
+    au=[-r for i in range(Num-1)]
+
+
+    # Gaussian Elimination
+    for i in range(Num-1):
+        temp=-al[i]/am[i]
+        #al[i]+=am[i]*temp
+        am[i+1]+=au[i]*temp
+        bVec[i+1]+=bVec[i]*temp
+
+    # Back substitution
+    for i in range(Num-1):
+        temp=-au[Num-i-2]/am[Num-i-1]
+        #au[Num-i-2]+=am[Num-i-1]*temp
+        bVec[Num-i-2]+=bVec[Num-i-1]*temp
+    
+
+    # Divide by main diagonal
+    for i in range(Num):
+        bVec[i]=bVec[i]/am[i]
+        #am[i]=am[i]/am[i]
+
+    
+    # Print the result
+    return bVec
 
 
 def rotatePaths():
@@ -163,16 +259,7 @@ def rotatePaths():
     pathNew=temp
     del temp
 
-def FillOldState():
-    global pathOld, params
-    c_calcForces(pathOld, params);
-    c_calcForcesPrime(pathOld, params);
-    c_calcForcesDoublePrime(pathOld, params);
-    c_calcG(pathOld,params);
-    c_calcgradG(pathOld,params);
-    c_calcLInverse(pathOld, params);
-
-def FillCurState():
+def FillCurIto():
     global pathCur, params
     c_calcForces(pathCur, params);
     c_calcForcesPrime(pathCur, params);
@@ -181,7 +268,7 @@ def FillCurState():
     c_calcgradG(pathCur,params);
     c_calcLInverse(pathCur, params);
 
-def FillNewState():
+def FillNewIto():
     global pathNew, params
     c_calcForces(pathNew, params);
     c_calcForcesPrime(pathNew, params);
@@ -189,6 +276,28 @@ def FillNewState():
     c_calcG(pathNew,params);
     c_calcgradG(pathNew,params);
     c_calcLInverse(pathNew, params);
+
+def FillCurFinite():
+    global pathCur, params
+    c_calcPosBar(pathCur, params);
+    c_calcForces(pathCur, params);
+    c_calcForcesBar(pathCur, params);
+    c_calcForcesPrimeBar(pathCur, params);
+    c_calcForcesDoublePrimeBar(pathCur, params);
+    c_calcDeltae(pathCur, params);
+    c_calcdg(pathCur, params);
+    c_calcPhi(pathCur, params);
+
+def FillNewFinite():
+    global pathNew, params
+    c_calcPosBar(pathNew, params);
+    c_calcForces(pathNew, params);
+    c_calcForcesBar(pathNew, params);
+    c_calcForcesPrimeBar(pathNew, params);
+    c_calcForcesDoublePrimeBar(pathNew, params);
+    c_calcDeltae(pathNew, params);
+    c_calcdg(pathNew, params);
+    c_calcPhi(pathNew, params);
 
 def saveStartingState(pathSave):
     global pathCur
@@ -199,109 +308,139 @@ def saveStartingState(pathSave):
 def printState(identifier):
     print "%s" % (identifier),
     print "\tqv: %1.6f" % c_quadVar(pathCur,params),
-    print "\tDelta E: %1.15f" % (Echange*2.*eps) ,
+    print "\tDelta E: %1.15f" % (Echange*2.*eps/deltat) ,
     print "\tExp(-dE*dt/2/eps): %1.15f" % math.exp(-Echange)
 
-def printTrans():
-    global pathNew
+#def printTrans():
+#    global pathNew
 
-    transCt=0
-    xstart=pathNew[0].pos
+#    transCt=0
+#    xstart=pathNew[0].pos
 
-    basinLeft=-2/3.
-    basinRight=4/3.
+#    basinLeft=-2/3.
+#    basinRight=4/3.
 
-    basin=basinLeft
+#    basin=basinLeft
 
-    for i in xrange(NumB):
-        if (pathNew[i].pos >4/3.) and (basin == basinLeft):
-            basin=basinRight
-        if (pathNew[i].pos < -2/3.) and (basin == basinRight):
-            basin=basinLeft
-            transCt+=1
-    print "Transitions: %d" % (transCt)
+#    for i in xrange(NumB):
+#        if (pathNew[i].pos >4/3.) and (basin == basinLeft):
+#            basin=basinRight
+#        if (pathNew[i].pos < -2/3.) and (basin == basinRight):
+#            basin=basinLeft
+#            transCt+=1
+#    print "Transitions: %d" % (transCt)
 
-def printParams():
+def printParams(path,params):
     print '------------------------------------------------'
     print 'New HMC algorithm (finite time step) for 1D external potential'
     print '  input file : %s' % args.infile
     print '  md5 hash   : '+hashlib.md5(open(args.infile).read()).hexdigest()
-    print '  quadvar eps: TODO'
-    print '  eps  = %f' % eps
-    print '  dt   = %e' % args.deltat
-    print '  dtau = %e' % args.deltatau
-    print '  Nb   = %d' % NumB
+    print '  quadvar eps: %f' % ( quadraticVariation(path,params) )
+    print '  eps  = %f' % params.eps
+    print '  dt   = %e' % params.deltat
+    print '  dtau = %e' % params.deltatau
+    print '  Nb   = %d' % params.NumB
     print '  HMC  = %d' % args.HMC
     print '  MD   = %d' % args.MD
-    print '  MD*h = %f' % (float(args.MD) * math.sqrt(2.0*args.deltatau))
+    print '  MD*h = %f' % (float(args.MD) * math.sqrt(2.0*params.deltatau))
     print "  seed = %d" % args.RNGseed
     print '------------------------------------------------'
+
+def quadraticVariation(path,params):
+    sumxx = sum([ (path[i+1].pos-path[i].pos)**2 for i in range(params.NumB-1) ])
+    return sumxx/2.0/params.deltat/params.NumB
 
 def writeCurPath(fileName):
     global pathCur
     np.savetxt(fileName,np.array([pathCur[i].pos for i in range(NumB)]))
 
-#def makeHistogram(path,pltname):
+def initializeParams(params):
+    params.deltat=deltat
+    params.invdt=invdt
+    params.eps=eps
+    params.deltatau=deltatau
+    params.noisePref=noisePref
+    params.r=r
+    params.NumB=NumB
 
-#    #calculate the partition function for use in the plots
-#    expPot = lambda x: math.exp(-(((3.*x+2.)**2 * (3.*x-4.)**4)/1024.)/0.15)
-#    Z0=1.1229622054
-#    ### mathematica code to find partition function normalization
-#    #NIntegrate[Exp[-((3 x + 2)^2 * (3 x - 4)^4/1024)/0.15], {x, -100, 100}]
+def setRNGseed():
+  # if there is no rng set on cmd line, generate a random one
+  if args.RNGseed is None:
+    args.RNGseed = random.SystemRandom().randint(1,1000000)
+  # set the random seed of numpy
+  np.random.seed(args.RNGseed)
 
-#    HistData=[0 for i in range(400)]
-#    for i in range(len(path)):
-#        HistData[int((path[i]+1.5)*100)]+=1
+def calcSPDEFinitePos(path0,path1,params):
+    # calculate the rhs vecor in the notes
+    # the struct MUST be filled before this step
+    c_calcSPDErhs(path0, params)
 
-#    invPathLen=1.0/(len(path)*0.005)
-#    plt.plot([i for i in np.linspace(-1.5,2.5,400)],[expPot(i)/Z0 for i in np.linspace(-1.5,2.5,400)])
-#    plt.plot([i for i in np.linspace(-1.5,2.5,400)],np.array(HistData)*invPathLen)
-#    plt.savefig('Histplot'+pltname+'.png')
-#    plt.close()
+    # generates the pathCur positions by doing 
+    # gaussian elim on the rhs vector
+    c_GaussElim(path0,path1,params)
 
-# ===============================================
-# Unit Tests
-# ===============================================
-class TestClass:
+def calcMDFinitePos(path0,path1,path2,params):
+    # calculate the current state 
+    c_calcMDrhs(path0, path1, params)
 
-    def test_setUp(self):
-        print "starting the test suite"
-        # dont run any HMC loops
-        args.HMC=0
-        assert 1
+    # generate the pathNew positions
+    c_GaussElim(path1,path2,params)
 
-    def test_tearDown(self):
-        assert 1
-        pytest.exit("ending the tests")
+def printStateMD(MDloops):
+    # (less than 10 MD loops print all for debugging)
+    if MDloops <= 10 and MDIter != MDloops-1:
+        printState("MDloop "+str(MDIter))
+    elif MDIter != MDloops-1 and MDIter % int(int(args.MD)/5.) == 0:
+        printState("MDloop "+str(MDIter))
 
+def MHMC_test(Echange,acc,rej):
+    global pathCur
+    global pathNew
+    if math.exp(-Echange) > np.random.random():
+        # accept
+        acc+=1
+    else:
+        # reject
+        rej+=1
+        # set current path postions to the saved path
+        for i in range(NumB):
+            pathCur[i].pos=savePath[i]
+    print "acc: %d   rej: %d" % (acc,rej)
+    
+def printPosBasin():
+    posBasin=0
+    for i in xrange(NumB):
+        if pathCur[i].pos > 0:
+            posBasin+=1
+    print "posBasin: %i" % (posBasin)
 
 # ===============================================
 # MAIN loop
 # ===============================================
+# set the seed for the random number generator
+setRNGseed()
 
-if args.RNGseed is None:
-  args.RNGseed = random.SystemRandom().randint(1,1000000)
-
-np.random.seed(args.RNGseed)
-
+# read the input path specified on the cmd line
 inPath=np.loadtxt(args.infile)
 
-# ===============================================
-# Initializing the structs
-#declare the params struct
+# Initialize the structs for params and paths
+#   need one parameter struct (constants)
+#   need 3 path structs (old cur new)
 params=paramType()
-params.deltat=deltat
-params.invdt=invdt
-params.eps=eps
-params.deltatau=deltatau
-params.noisePref=noisePref
-params.r=r
-params.NumB=NumB
-
 pathOld=pathType()
 pathCur=pathType()
 pathNew=pathType()
 
+
+# fill the params struct with the run parameters
+initializeParams(params)
+
+# set the positions in pathCur to be inPath positions
+for i in np.arange(0,len(inPath),1):
+    pathCur[i].pos=inPath[i]
+
+# print the run parameters
+printParams(pathCur,params)
 
 # output storage space
 outPath=np.array([0.0 for i in np.arange(0,len(inPath),1)])
@@ -312,174 +451,113 @@ savePath=np.array([0.0 for i in np.arange(0,len(inPath),1)])
 acc=0
 rej=0
 
-plotiter=100000
-
-## start the profiler
-#pr = cProfile.Profile()
-#pr.enable()
-
-printParams()
-
-for i in np.arange(0,len(inPath),1):
-    pathCur[i].pos=inPath[i]
-
-bins=[0 for i in range(40)]
-histBins=np.arange(-2,2.1,0.1)
-
+# ============ SPDE/HMC LOOP =================
 for HMCIter in range(args.HMC):
+
 
     # save the current path to savePath in case of rejection
     for i in range(NumB):
         savePath[i]=pathCur[i].pos
 
-    # noise vector
+    # generate the noise vector (random gaussian distributed list)
     for i in np.arange(1,len(inPath)-1,1):
         pathCur[i].randlist=np.random.normal(0,1)
+
+
+
+
+
+
+
+
+
+
+
+
     # generate the brownian bridge from the random numbers
     c_genBB(pathCur,params)
 
-    ##====================================
-    ##PinskiDebug
-    #os.system("./genBB.m 0.15 "+str(1000000+HMCIter))
-    #print "rng seed: %s" % (str(1000000+HMCIter))
-    #os.system("./quadVar.py randBBlist.dat 100")
-    #BBtemp=np.loadtxt("randBBlist.dat")
-    #for i in range(NumB):
-    #    pathCur[i].bb=BBtemp[i]
-    #print [pathCur[i].bb for i in range(5)]
-    ##====================================
-
     # filled the entire path struct
-    FillCurState()
-    c_calcLInverse(pathCur,params)
+    FillCurIto()
 
     # calculate the new positions
     c_calcSPDEItopos(pathCur, pathNew, params)
 
     # calculate all of the struct arrays
-    FillNewState()
-    c_calcLInverse(pathNew,params)
-
-    #====================================
-    #PinskiDebug
-
-    #====================================
-
-
+    FillNewIto()
 
     # reset the energy change accumulator at the beginning of the SPDE step
     Echange=0.0
     Echange+=c_calcEChangeIto(pathCur,pathNew,params)
 
+
+
+
+
+
+
+
+
+
+
+
+
     rotatePaths()
-    print "======== SPDE =========="
     printState("SPDE")
-#    print "0: %f 1: %f mid: %f end: %f" % (pathCur[0].pos, pathCur[1].pos,pathCur[5000].pos, pathCur[NumB-1].pos)
-#    print "BB0: %f 1: %f mid: %f end: %f" % (pathCur[0].bb, pathCur[1].bb,pathCur[5000].bb, pathCur[NumB-1].bb)
-    print "========================"
 
-
+    # ============ MD LOOP =================
     MDloops=max(1,int(args.MD*(0.5 + np.random.random())))
-
-    ##====================================
-    ##PinskiDebug
     MDloops=int(args.MD)
-    ##====================================
 
+    #for MDIter in range( max(1,int(args.MD*(0.5 + np.random.random()))) ):
     for MDIter in range( MDloops ):
- 
+
+
+
+
+
+
+
+
+
         # calculate the new positions
         c_calcMDItopos(pathOld, pathCur, pathNew, params)
 
-
         # calculate all of the struct arrays
-        FillNewState()
-        c_calcLInverse(pathNew,params)
+        FillNewIto()
 
         Echange+=c_calcEChangeIto(pathCur,pathNew,params)
 
- 
+
+
+
+
+
+
+
+
+
         # rotate the path structs
         rotatePaths()
 
-        # print the MD state 
-        # (less than 10 MD loops print all for debugging)
-        if MDloops <= 10 and MDIter != MDloops-1:
-            printState("MDloop "+str(MDIter))
-        elif MDIter != MDloops-1 and MDIter % int(int(args.MD)/5.) == 0:
-            printState("MDloop "+str(MDIter))
-
+        # print some of the MD states (~10 total)
+        printStateMD(MDloops)
+        
+    # print the run state for the final MD step
     printState("MDloop "+str(MDloops-1))
 
-    # Metropolis Hasitings Step
-    if math.exp(-Echange) > np.random.random():
-    ##====================================
-    ##PinskiDebug
-    #if math.exp(-Echange) > 0.5:
-    ##====================================
 
-        # accept
-        acc+=1
-        posBasin=0
-        for i in xrange(NumB):
-            if pathCur[i].pos > 0:
-                posBasin+=1
-        print "posBasin: %i" % (posBasin)
-        printTrans()
-    else:
-        rej+=1
-        for i in range(NumB):
-            pathCur[i].pos=savePath[i]
-
-    print "acc: %d   rej: %d" % (acc,rej)
-
-
-    bins+=(np.histogram(savePath,bins=histBins)[0])/float(NumB)/0.1
-
+    # Metropolis Hasitings Monte-Carlo
+    MHMC_test(Echange,acc,rej)
+    printPosBasin()
 
 
     if HMCIter % max(1,int(int(args.HMC)/float(args.WriteFiles))) == 0:
-        # write/plot the path and save to file
         writeCurPath("outPath"+str(HMCIter)+".dat")
-        #plt.plot([pathCur[i].pos for i in range(NumB)])
-        #plt.savefig('testplot'+str(plotiter)+'.png')
-        #plt.close()
-        #makeHistogram([pathCur[i].pos for i in range(NumB)],str(plotiter))
-        #plotiter+=1
     sys.stdout.flush()
 
 
-np.savetxt("histData",bins/float(args.HMC))
-
-
-
-
-
-
-
-#dgTemp=[pathOld[i].dg for i in range(NumB)]
-#plt.plot(dgTemp)
-#plt.show()
-
-#hessTemp=[pathOld[i].Hessian for i in range(NumB)]
-#plt.plot(hessTemp)
-#plt.show()
-
-## profiler stop
-#pr.disable()
-#s = StringIO.StringIO()
-#sortby = 'cumulative'
-#ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-#ps.print_stats()
-#print s.getvalue()
-
-# test to see if the path is still correct
+# print the final path to file
 for i in np.arange(0,len(inPath),1):
     outPath[i]=pathCur[i].pos
-
-#if (np.loadtxt("outPathfive.dat") == outPath).all():
-#    print "SUCCESS!"
-#else:
-#    print "FAIL"
-
 np.savetxt(args.outfile,outPath)
