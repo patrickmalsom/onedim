@@ -235,8 +235,8 @@ def saveStartingState(pathSave):
 def printState(identifier):
     print "%s" % (identifier),
     print "qv: %1.6f" % c_quadVar(pathCur,params),
-    print "\tDelta E: %1.6f" % Echange ,
-    print "\tExp(-dE*dt/2/eps): %1.6f" % math.exp(-Echange*deltat/(2.0*eps))
+    print "\tDelta E: %1.6f" % (Echange*2.0*eps/deltat) ,
+    print "\tExp(-dE*dt/2/eps): %1.6f" % math.exp(-Echange)
 
 def printTrans():
     global pathNew
@@ -477,7 +477,7 @@ for HMCIter in range(args.HMC):
 
     # Metropolis Hasitings Step
 
-    if math.exp(-Echange*deltat/(2.0*eps)) > np.random.random():
+    if math.exp(-Echange) > np.random.random():
         # accept
         acc+=1
         posBasin=0

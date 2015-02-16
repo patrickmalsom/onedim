@@ -292,7 +292,8 @@ double calcEnergyChange(averages* path0, averages* path1, parameters params){
   temp2 *= 0.25*params.deltatau;
 
   //return the change in energy for a single step
-  return Phi1-Phi0-temp1-temp2;
+  // this returns the negative of the entire MHMC test argument (dE*dt/2/eps)
+  return (Phi1-Phi0-temp1-temp2)*params.deltat/(2.0*params.eps);
 
 }
 
