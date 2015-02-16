@@ -70,6 +70,8 @@ import os
 # Argparse: command line options
 import argparse
 parser = argparse.ArgumentParser(description='Ito HMC algorithm (finite time step) for 1D external potential')
+parser.add_argument('--method', type=str,
+    help='HMC method to use;              {ito,forward}')
 parser.add_argument('-i','--infile', type=str, default='inFile.dat', 
     help='input path positions;           default=inFile.dat')
 parser.add_argument('-o','--outfile', type=str, default='outPathFinal.dat', 
@@ -463,44 +465,40 @@ for HMCIter in range(args.HMC):
     for i in np.arange(1,len(inPath)-1,1):
         pathCur[i].randlist=np.random.normal(0,1)
 
+    # ITO SPDE LOOP
+    if (args.method == "ito"):
+        # generate the brownian bridge from the random numbers
+        c_genBB(pathCur,params)
 
+        # filled the entire path struct
+        FillCurIto()
 
+        # calculate the new positions
+        c_calcSPDEItopos(pathCur, pathNew, params)
 
+        # calculate all of the struct arrays
+        FillNewIto()
 
+        # reset the energy change accumulator at the beginning of the SPDE step
+        Echange=0.0
+        Echange+=c_calcEChangeIto(pathCur,pathNew,params)
 
+    # Finite SPDE LOOP
+    elif (args.method == "finite"):
+        # calculate the current state 
+        FillCurFinite()
 
+        # calculate the new position vector using the current state
+        calcSPDEFinitePos(pathCur,pathNew,params)
 
+        # calculate all of the struct arrays
+        FillNewFinite()
 
-
-
-
-    # generate the brownian bridge from the random numbers
-    c_genBB(pathCur,params)
-
-    # filled the entire path struct
-    FillCurIto()
-
-    # calculate the new positions
-    c_calcSPDEItopos(pathCur, pathNew, params)
-
-    # calculate all of the struct arrays
-    FillNewIto()
-
-    # reset the energy change accumulator at the beginning of the SPDE step
-    Echange=0.0
-    Echange+=c_calcEChangeIto(pathCur,pathNew,params)
-
-
-
-
-
-
-
-
-
-
-
-
+        # reset the energy change accumulator at the beginning of the SPDE step
+        Echange=0.0
+        Echange+=c_EChangeFinite(pathCur,pathNew,params)
+    else:
+        print "BAD METHOD!"
 
     rotatePaths()
     printState("SPDE")
@@ -509,43 +507,46 @@ for HMCIter in range(args.HMC):
     #MDloops=max(1,int(args.MD*(0.5 + np.random.random())))
     MDloops=int(args.MD)
 
-    #for MDIter in range( max(1,int(args.MD*(0.5 + np.random.random()))) ):
-    for MDIter in range( MDloops ):
+    # ITO MD LOOP
+    if (args.method == "ito"):
 
+        for MDIter in range( MDloops ):
 
+            # calculate the new positions
+            c_calcMDItopos(pathOld, pathCur, pathNew, params)
 
+            # calculate all of the struct arrays
+            FillNewIto()
 
+            Echange+=c_calcEChangeIto(pathCur,pathNew,params)
 
+            # rotate the path structs
+            rotatePaths()
 
+            # print some of the MD states (~10 total)
+            printStateMD(MDloops)
 
+    # ITO SPDE LOOP
+    elif (args.method == "finite"):
+        for MDIter in range( MDloops ):
+            # calculate the new postions in pathNew
+            calcMDFinitePos(pathOld,pathCur,pathNew,params)
 
+            # calculate all of the struct arrays in pathNew
+            FillNewFinite()
 
-        # calculate the new positions
-        c_calcMDItopos(pathOld, pathCur, pathNew, params)
+            Echange+=c_EChangeFinite(pathCur,pathNew,params)
 
-        # calculate all of the struct arrays
-        FillNewIto()
+            # rotate the path structs
+            rotatePaths()
 
-        Echange+=c_calcEChangeIto(pathCur,pathNew,params)
+            # print some of the MD states (~10 total)
+            printStateMD(MDloops)
+    else:
+        print "BAD METHOD!"
 
-
-
-
-
-
-
-
-
-
-        # rotate the path structs
-        rotatePaths()
-
-        # print some of the MD states (~10 total)
-        printStateMD(MDloops)
-        
     # print the run state for the final MD step
     printState("MDloop "+str(MDloops-1))
-
 
     # Metropolis Hasitings Monte-Carlo
     MHMC_test(Echange,acc,rej)
