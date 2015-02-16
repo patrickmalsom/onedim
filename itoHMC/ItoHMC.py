@@ -349,7 +349,7 @@ for HMCIter in range(args.HMC):
 
     ##====================================
     ##PinskiDebug
-    #MDloops=int(args.MD)
+    MDloops=int(args.MD)
     ##====================================
 
     for MDIter in range( MDloops ):
