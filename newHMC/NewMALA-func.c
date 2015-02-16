@@ -41,20 +41,25 @@ typedef struct _parameters
 //     rhs: RHS of the SPDE/MD eqns (different eqns for SPDE and MD)
 typedef struct _path
 {
+  // positions
   double pos;
   double posBar;
+  // random gaussian numbers
   double randlist;
+  // forces
   double F;
   double Fbar;
+  double Fp;
   double Fpbar;
+  double Fpp;
   double Fppbar;
+  // Finite
   double deltae;
   double dg;
   double Phi;
   double rhs;
+  // Ito
   double bb;
-  double Fp;
-  double Fpp;
   double G;
   double gradG;
   double LinvG;

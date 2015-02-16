@@ -169,18 +169,22 @@ paramType=Parameters
 class Averages(ctypes.Structure):
   _fields_ = [('pos', DOUBLE),
               ('posBar', DOUBLE),
+              # random gaussian numbers
               ('randlist', DOUBLE),
+              # forces
               ('F', DOUBLE),
               ('Fbar', DOUBLE),
+              ('Fp', DOUBLE),
               ('Fpbar', DOUBLE),
+              ('Fpp', DOUBLE),
               ('Fppbar', DOUBLE),
+              # Finite
               ('deltae', DOUBLE),
               ('dg', DOUBLE),
               ('Phi', DOUBLE),
               ('rhs', DOUBLE),
+              # Ito
               ('bb', DOUBLE),
-              ('Fp', DOUBLE),
-              ('Fpp', DOUBLE),
               ('G', DOUBLE),
               ('gradG', DOUBLE),
               ('LinvG', DOUBLE)
