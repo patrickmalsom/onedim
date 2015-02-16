@@ -44,7 +44,6 @@ typedef struct _path
   double pos;
   double posBar;
   double randlist;
-  double U;
   double F;
   double Fbar;
   double Fpbar;
@@ -82,14 +81,10 @@ typedef struct _path
 /* =====================================================================
  * Potential Definitions: Fatter-Skinnier Potential: ((8 - 5 x)^8 (2. + 5 x)^2)/2**26
  * -----------------------------
- *   Pot:       U(x)          -> returns the potential at a position
  *   Force:     F(x)=-dU/dx   -> returns the force at a position
  *   ForcePr:   F'(x)=dF/dx   -> returns the first deriv of force
  *   ForcePrPr: F''(x)=dF'/dx -> returns the second deriv of force
 */
-double Pot(double x){
-  return 1.0000000000000002 + x*x*(-7.812499999999998 + x*(9.765625 + x*(10.68115234375 + x*(-37.384033203125 + x*(41.72325134277344 + x*(-25.331974029541016 + x*(8.96397978067398 + (-1.7462298274040222 + 0.14551915228366852*x)*x)))))));
-}
 double Force(double x){
   return x*(15.625 + x*(-29.296875 + x*(-42.724609375 + x*(186.920166015625 + x*(-250.33950805664065 + x*(177.3238182067871 + x*(-71.71183824539185 + (15.716068446636202 - 1.4551915228366852*x)*x)))))));
 }
@@ -152,17 +147,6 @@ void calcPosBar(averages* path, parameters params){
   }
 }
 
-// ==================================================================================
-void calcPot(averages* path, parameters params){
-  // fill out the Potential variables for the struce
-  // initial params must have the positions filled
-  int i;
-
-  #pragma omp parallel for
-  for(i=0;i<params.NumB;i++){
-    path[i].U = Pot(path[i].pos);
-  }
-}
 
 // ==================================================================================
 void calcForces(averages* path, parameters params){

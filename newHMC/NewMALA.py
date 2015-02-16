@@ -70,7 +70,6 @@ clib=ctypes.CDLL("NewMALA-func.so")
 #c_Pot=clib.Pot
 #clib.Pot.restype = DOUBLE
 c_calcPosBar=clib.calcPosBar
-c_calcPot=clib.calcPot
 c_calcForces=clib.calcForces
 c_calcForcesBar=clib.calcForcesBar
 c_calcForcesPrimeBar=clib.calcForcesPrimeBar
@@ -128,7 +127,6 @@ class Averages(ctypes.Structure):
   _fields_ = [('pos', DOUBLE),
               ('posBar', DOUBLE),
               ('randlist', DOUBLE),
-              ('U', DOUBLE),
               ('F', DOUBLE),
               ('Fbar', DOUBLE),
               ('Fpbar', DOUBLE),
@@ -192,7 +190,6 @@ def rotatePaths():
 def FillOldState():
     global pathOld, params
     c_calcPosBar(pathOld, params);
-    c_calcPot(pathOld, params);
     c_calcForces(pathOld, params);
     c_calcForcesBar(pathOld, params);
     c_calcForcesPrimeBar(pathOld, params);
@@ -204,7 +201,6 @@ def FillOldState():
 def FillCurState():
     global pathCur, params
     c_calcPosBar(pathCur, params);
-    c_calcPot(pathCur, params);
     c_calcForces(pathCur, params);
     c_calcForcesBar(pathCur, params);
     c_calcForcesPrimeBar(pathCur, params);
@@ -216,7 +212,6 @@ def FillCurState():
 def FillNewState():
     global pathNew, params
     c_calcPosBar(pathNew, params);
-    c_calcPot(pathNew, params);
     c_calcForces(pathNew, params);
     c_calcForcesBar(pathNew, params);
     c_calcForcesPrimeBar(pathNew, params);
