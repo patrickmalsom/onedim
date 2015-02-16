@@ -68,15 +68,25 @@ clib=ctypes.CDLL("ItoHMC.so")
 # library functions
 #c_Pot=clib.Pot
 #clib.Pot.restype = DOUBLE
-c_calcPotentials=clib.calcPotentials
+#c_calcPotentials=clib.calcPotentials
+c_calcPosBar=clib.calcPosBar
+c_calcForces=clib.calcForces
+c_calcForcesBar=clib.calcForcesBar
+c_calcForcesPrime=clib.calcForcesPrime
+c_calcForcesPrimeBar=clib.calcForcesPrimeBar
+c_calcForcesDoublePrime=clib.calcForcesDoublePrime
+c_calcForcesDoublePrimeBar=clib.calcForcesDoublePrimeBar
+c_calcG=clib.calcG
+c_calcgradG=clib.calcgradG
+
 c_calcLInverse=clib.LInverse
 
-c_calcSPDEpos=clib.calcSPDEpos
-c_calcMDpos=clib.calcMDpos
+c_calcSPDEItopos=clib.calcSPDEItopos
+c_calcMDItopos=clib.calcMDItopos
 c_genBB=clib.generateBB
 
-c_calcEnergyChange=clib.calcEnergyChange
-clib.calcEnergyChange.restype = DOUBLE
+c_calcEChangeIto=clib.calcEChangeIto
+clib.calcEChangeIto.restype = DOUBLE
 
 c_quadVar=clib.quadVar
 clib.quadVar.restype = DOUBLE
@@ -118,11 +128,23 @@ paramType=Parameters
 # this structs pointer will be passed between C and Python code
 class Averages(ctypes.Structure):
   _fields_ = [('pos', DOUBLE),
+              ('posBar', DOUBLE),
+              # random gaussian numbers
               ('randlist', DOUBLE),
-              ('bb', DOUBLE),
+              # forces
               ('F', DOUBLE),
+              ('Fbar', DOUBLE),
               ('Fp', DOUBLE),
+              ('Fpbar', DOUBLE),
               ('Fpp', DOUBLE),
+              ('Fppbar', DOUBLE),
+              # Finite
+              ('deltae', DOUBLE),
+              ('dg', DOUBLE),
+              ('Phi', DOUBLE),
+              ('rhs', DOUBLE),
+              # Ito
+              ('bb', DOUBLE),
               ('G', DOUBLE),
               ('gradG', DOUBLE),
               ('LinvG', DOUBLE)
@@ -143,17 +165,29 @@ def rotatePaths():
 
 def FillOldState():
     global pathOld, params
-    c_calcPotentials(pathOld, params);
+    c_calcForces(pathOld, params);
+    c_calcForcesPrime(pathOld, params);
+    c_calcForcesDoublePrime(pathOld, params);
+    c_calcG(pathOld,params);
+    c_calcgradG(pathOld,params);
     c_calcLInverse(pathOld, params);
 
 def FillCurState():
     global pathCur, params
-    c_calcPotentials(pathCur, params);
+    c_calcForces(pathCur, params);
+    c_calcForcesPrime(pathCur, params);
+    c_calcForcesDoublePrime(pathCur, params);
+    c_calcG(pathCur,params);
+    c_calcgradG(pathCur,params);
     c_calcLInverse(pathCur, params);
 
 def FillNewState():
     global pathNew, params
-    c_calcPotentials(pathNew, params);
+    c_calcForces(pathNew, params);
+    c_calcForcesPrime(pathNew, params);
+    c_calcForcesDoublePrime(pathNew, params);
+    c_calcG(pathNew,params);
+    c_calcgradG(pathNew,params);
     c_calcLInverse(pathNew, params);
 
 def saveStartingState(pathSave):
@@ -320,7 +354,7 @@ for HMCIter in range(args.HMC):
     c_calcLInverse(pathCur,params)
 
     # calculate the new positions
-    c_calcSPDEpos(pathCur, pathNew, params)
+    c_calcSPDEItopos(pathCur, pathNew, params)
 
     # calculate all of the struct arrays
     FillNewState()
@@ -335,7 +369,7 @@ for HMCIter in range(args.HMC):
 
     # reset the energy change accumulator at the beginning of the SPDE step
     Echange=0.0
-    Echange+=c_calcEnergyChange(pathCur,pathNew,params)
+    Echange+=c_calcEChangeIto(pathCur,pathNew,params)
 
     rotatePaths()
     print "======== SPDE =========="
@@ -355,14 +389,14 @@ for HMCIter in range(args.HMC):
     for MDIter in range( MDloops ):
  
         # calculate the new positions
-        c_calcMDpos(pathOld, pathCur, pathNew, params)
+        c_calcMDItopos(pathOld, pathCur, pathNew, params)
 
 
         # calculate all of the struct arrays
         FillNewState()
         c_calcLInverse(pathNew,params)
 
-        Echange+=c_calcEnergyChange(pathCur,pathNew,params)
+        Echange+=c_calcEChangeIto(pathCur,pathNew,params)
 
  
         # rotate the path structs
