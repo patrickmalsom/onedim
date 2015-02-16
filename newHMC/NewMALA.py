@@ -70,8 +70,6 @@ import os
 # Argparse: command line options
 import argparse
 parser = argparse.ArgumentParser(description='New HMC algorithm (finite time step) for 1D external potential')
-parser.add_argument('-t','--test', action="store_true",
-    help='run py.test unit tests')
 parser.add_argument('-i','--infile', type=str, default='inFile.dat', 
     help='input path positions;           default=inFile.dat')
 parser.add_argument('-o','--outfile', type=str, default='outFile.dat', 
@@ -96,12 +94,6 @@ args = parser.parse_args()
 
 # python profiler
 import cProfile, pstats, StringIO
-
-# if testing mode flag is given
-if args.test:
-    # py.test unit testing suite
-    import pytest
-    pytest.main("NewMALA.py")
 
 # ===============================================
 # Ctypes
@@ -234,7 +226,6 @@ def GaussElim(r,bVec):
     # Print the result
     return bVec
 
-
 def rotatePaths():
     # rotate the structure pointers (old1->current0, current1->new0, new1->old0 )
     global pathOld,pathCur,pathNew
@@ -308,98 +299,25 @@ def printState(identifier):
 #            transCt+=1
 #    print "Transitions: %d" % (transCt)
 
-def printParams():
+def printParams(path,params):
     print '------------------------------------------------'
     print 'New HMC algorithm (finite time step) for 1D external potential'
     print '  input file : %s' % args.infile
     print '  md5 hash   : '+hashlib.md5(open(args.infile).read()).hexdigest()
-    print '  quadvar eps: TODO'
-    print '  eps  = %f' % eps
-    print '  dt   = %e' % args.deltat
-    print '  dtau = %e' % args.deltatau
-    print '  Nb   = %d' % NumB
+    print '  quadvar eps: %f' % ( quadraticVariation(path,params) )
+    print '  eps  = %f' % params.eps
+    print '  dt   = %e' % params.deltat
+    print '  dtau = %e' % params.deltatau
+    print '  Nb   = %d' % params.NumB
     print '  HMC  = %d' % args.HMC
     print '  MD   = %d' % args.MD
-    print '  MD*h = %f' % (float(args.MD) * math.sqrt(2.0*args.deltatau))
+    print '  MD*h = %f' % (float(args.MD) * math.sqrt(2.0*params.deltatau))
     print "  seed = %d" % args.RNGseed
     print '------------------------------------------------'
 
 def writeCurPath(fileName):
     global pathCur
     np.savetxt(fileName,np.array([pathCur[i].pos for i in range(NumB)]))
-
-#def makeHistogram(path,pltname):
-
-#    #calculate the partition function for use in the plots
-#    expPot = lambda x: math.exp(-(((3.*x+2.)**2 * (3.*x-4.)**4)/1024.)/0.15)
-#    Z0=1.1229622054
-#    ### mathematica code to find partition function normalization
-#    #NIntegrate[Exp[-((3 x + 2)^2 * (3 x - 4)^4/1024)/0.15], {x, -100, 100}]
-
-#    HistData=[0 for i in range(400)]
-#    for i in range(len(path)):
-#        HistData[int((path[i]+1.5)*100)]+=1
-
-#    invPathLen=1.0/(len(path)*0.005)
-#    plt.plot([i for i in np.linspace(-1.5,2.5,400)],[expPot(i)/Z0 for i in np.linspace(-1.5,2.5,400)])
-#    plt.plot([i for i in np.linspace(-1.5,2.5,400)],np.array(HistData)*invPathLen)
-#    plt.savefig('Histplot'+pltname+'.png')
-#    plt.close()
-
-# ===============================================
-# Unit Tests
-# ===============================================
-def tFunc(x):
-    return x+1
-
-class TestClass:
-
-    def test_setUp(self):
-        print "starting the test suite"
-        # dont run any HMC loops
-        args.HMC=0
-        assert 1
-
-    def test_example_test1(self):
-        assert tFunc(2)==3
-
-    def test_example_test2(self):
-        assert tFunc(2)==3 
-
-    def test_tearDown(self):
-        assert 1
-        pytest.exit("ending the tests")
-
-# Unit Tests
-#def unitTest(path,Echange):
-#    print "quadVar:" str(c_quadVar(path,params)) + "    Delta E:" + str(Echange)
-    # print the quadratic variation
-    #print str(c_quadVar(path,params))
-    # verify that the boundary conditions have not changed
-    #if inpath[0] != outpath[0] and inpath[-1] != outpath[-1]:
-    #    sys.exit("Boundary Conditions Changed! Aborting...")
-    
-#def quadVar(poslist):
-#    quadVarSum=sum([(poslist[i]-poslist[i+1])**2 for i in range(len(poslist)-1)])
-#    quadVarSum/=(2.*eps*deltat*(len(poslist)-1))
-#    print "quad var: " + str(quadVarSum)
-
-## check for the 
-#def checkBCs(path):
-#    return [path[0],path[-1]]
-
-#def printState(path0,path1,path2,beadNum):
-#    print ""
-#    print "================"
-#    print "path0:"+str(path0[beadNum].pos)+"  "+str(path0[beadNum].Force)+"  "+str(path0[beadNum].dg)
-#    print "path1:"+str(path1[beadNum].pos)+"  "+str(path1[beadNum].Force)+"  "+str(path1[beadNum].dg)
-#    print "path2:"+str(path2[beadNum].pos)+"  "+str(path2[beadNum].Force)+"  "+str(path2[beadNum].dg)
-#    print ""
-
-#def plotPath(path):
-#    tempPath=[path[i].pos for i in range(NumB)]
-#    plt.plot(tempPath)
-#    plt.show()
 
 def setRNGseed():
   # if there is no rng set on cmd line, generate a random one
@@ -461,6 +379,10 @@ def printPosBasin():
             posBasin+=1
     print "posBasin: %i" % (posBasin)
 
+def quadraticVariation(path,params):
+    sumxx = sum([ (path[i+1].pos-path[i].pos)**2 for i in range(params.NumB-1) ])
+    return sumxx/2.0/params.deltat/params.NumB
+
 # ===============================================
 # MAIN loop
 # ===============================================
@@ -479,19 +401,19 @@ pathOld=pathType()
 pathCur=pathType()
 pathNew=pathType()
 
+
 # fill the params struct with the run parameters
 initializeParams(params)
-# print the run parameters
-# TODO: change this to use the params struct
-printParams()
 
 # set the positions in pathCur to be inPath positions
 for i in np.arange(0,len(inPath),1):
     pathCur[i].pos=inPath[i]
 
+# print the run parameters
+printParams(pathCur,params)
+
 # output storage space
 outPath=np.array([0.0 for i in np.arange(0,len(inPath),1)])
-
 # save path (for rejection) storage space
 savePath=np.array([0.0 for i in np.arange(0,len(inPath),1)])
 
@@ -524,10 +446,7 @@ for HMCIter in range(args.HMC):
     Echange+=c_EChangeFinite(pathCur,pathNew,params)
 
     rotatePaths()
-    print "======== SPDE =========="
     printState("SPDE")
-    print "========================"
-
 
     # ============ MD LOOP =================
     #MDloops=max(1,int(args.MD*(0.5 + np.random.random())))
