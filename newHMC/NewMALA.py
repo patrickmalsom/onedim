@@ -2,6 +2,57 @@
 
 # MALA routine
 
+##################### OVERVIEW #######################
+# Ito                common             Finite
+# ---                ------             ------
+#                    Import modules
+#                    argparse
+#                    ctypes
+#                    constant defns
+#                    struct defns
+#                    functions
+#                      - rorate paths
+#                      - fill states (x3)
+#                      - saveStartState
+#                      - print funcs
+#                      - writeCurPath
+#       ************* MAIN LOOP **************
+#                    setRNGseed
+#                    readInPath
+#                    declare consts
+#                    declare structs
+#                    print params
+#                    pathCur.pos=inPath
+#       ************* HMC LOOP **************
+#                    save path
+#                <-- gen noise -->
+# gen BB   
+# fillCurIto                            fillCurFinite
+# calcSPDEItoPos                        calcSPDEFinitePos
+# ---                                       - calcSPDEFiniteRHS
+# ---                                       - Gaussian Elim
+# FillNewIto                            fillNewFinite
+# EchangeIto -->                    <-- EchangeFinite
+#                    rotateStruct
+#                    printState
+#       ************* MD LOOP ***************
+#                <-- random MD loops -->
+# calcMDItoPos                          calcMDFinitePos
+# ---                                       - calcMDFiniteRHS
+# ---                                       - Gaussian Elim
+# fillNewIto                            FillNewFinite
+# EchangeIto -->                    <-- EchangeFinite
+#                    rotateStruct
+#                    printState
+#       ************* MHMC  ***************
+#                    if(-dE>rand):
+#                      acc
+#                    else:
+#                      rej
+#                    writePaths
+#       ************* End MAIN LOOP ***************
+#                    write final path
+
 # ===============================================
 # Import and setup libraries
 # ===============================================
