@@ -1,7 +1,7 @@
 CC=gcc
 
 # Name of the code to be compiled
-CODENAME=NewMALA-func
+CODENAME=onedimHMC
 
 SOURCE=$(CODENAME).c
 OBJECT=$(CODENAME).o

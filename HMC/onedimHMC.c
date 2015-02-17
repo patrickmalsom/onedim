@@ -35,12 +35,25 @@ typedef struct _parameters
 // stores an array of useful quantities for the SPDE and MD simulation
 typedef struct _path
 {
+  // positions
   double pos;
+  double posBar;
+  // random gaussian numbers
   double randlist;
-  double bb;
+  // forces
   double F;
+  double Fbar;
   double Fp;
+  double Fpbar;
   double Fpp;
+  double Fppbar;
+  // Finite
+  double deltae;
+  double dg;
+  double Phi;
+  double rhs;
+  // Ito
+  double bb;
   double G;
   double gradG;
   double LinvG;
@@ -128,24 +141,102 @@ double ForceDoublePrime(double x){
  *   path: input path_struct to calculate potentials for
  *   params: (constant) parameters for the run
 */
-void calcPotentials(averages* path, parameters params)
-{
+//void calcPotentials(averages* path, parameters params)
+//{
+//  int i;
+
+//  #pragma omp parallel for
+//  for(i=0;i<params.NumB;i++){
+//    // Force
+//    path[i].F=Force(path[i].pos);
+//    // F' = dF/dx
+//    path[i].Fp=ForcePrime(path[i].pos);
+//    // F'' = d^2F/dx^2
+//    path[i].Fpp=ForceDoublePrime(path[i].pos);
+//    // G = 1/2*F^2 + eps*F'
+//    path[i].G=0.5*path[i].F*path[i].F + params.eps*path[i].Fp;
+//    // Grad G = F*F' + eps*F''
+//    path[i].gradG=path[i].F*path[i].Fp + params.eps*path[i].Fpp;
+//  }
+
+//}
+//// ==================================================================================
+void calcPosBar(averages* path, parameters params){
+  // fill out the Potential variables for the struce
+  // initial params must have the positions filled
   int i;
 
   #pragma omp parallel for
+  for(i=0;i<params.NumB-1;i++){
+    path[i].posBar = (path[i].pos+path[i+1].pos)*0.5;
+  }
+}
+// ==================================================================================
+void calcForces(averages* path, parameters params){
+  // fill out the Force variables for the struce
+  // initial params must have the positions filled
+  int i;
+  #pragma omp parallel for
   for(i=0;i<params.NumB;i++){
-    // Force
-    path[i].F=Force(path[i].pos);
-    // F' = dF/dx
-    path[i].Fp=ForcePrime(path[i].pos);
-    // F'' = d^2F/dx^2
-    path[i].Fpp=ForceDoublePrime(path[i].pos);
-    // G = 1/2*F^2 + eps*F'
+    path[i].F = Force(path[i].pos);
+  }
+}
+// ==================================================================================
+void calcForcesBar(averages* path, parameters params){
+  int i;
+  #pragma omp parallel for
+  for(i=0;i<params.NumB;i++){
+    path[i].Fbar = Force(path[i].posBar);
+  }
+}
+// ==================================================================================
+void calcForcesPrime(averages* path, parameters params){
+  int i;
+  #pragma omp parallel for
+  for(i=0;i<params.NumB;i++){
+    path[i].Fp = ForcePrime(path[i].pos);
+  }
+}
+// ==================================================================================
+void calcForcesPrimeBar(averages* path, parameters params){
+  int i;
+  #pragma omp parallel for
+  for(i=0;i<params.NumB;i++){
+    path[i].Fpbar = ForcePrime(path[i].posBar);
+  }
+}
+
+// ==================================================================================
+void calcForcesDoublePrime(averages* path, parameters params){
+  int i;
+  #pragma omp parallel for
+  for(i=0;i<params.NumB;i++){
+    path[i].Fpp = ForceDoublePrime(path[i].pos);
+  }
+}
+// ==================================================================================
+void calcForcesDoublePrimeBar(averages* path, parameters params){
+  int i;
+  #pragma omp parallel for
+  for(i=0;i<params.NumB;i++){
+    path[i].Fppbar = ForceDoublePrime(path[i].posBar);
+  }
+}
+// ==================================================================================
+void calcG(averages* path, parameters params){
+  int i;
+  #pragma omp parallel for
+  for(i=0;i<params.NumB;i++){
     path[i].G=0.5*path[i].F*path[i].F + params.eps*path[i].Fp;
-    // Grad G = F*F' + eps*F''
+  }
+}
+// ==================================================================================
+void calcgradG(averages* path, parameters params){
+  int i;
+  #pragma omp parallel for
+  for(i=0;i<params.NumB;i++){
     path[i].gradG=path[i].F*path[i].Fp + params.eps*path[i].Fpp;
   }
-
 }
 
 /* =====================================================================
@@ -200,7 +291,7 @@ void LInverse(averages* path, parameters params)
  *   path1: output path_struct
  *   params: (constant) parameters for the run
 */
-void calcSPDEpos(averages* path0, averages* path1, parameters params){
+void calcSPDEItopos(averages* path0, averages* path1, parameters params){
   // calculate the right hand side vector for the SPDE
   // this is x^{(1)} vector in the notes
 
@@ -232,7 +323,7 @@ void calcSPDEpos(averages* path0, averages* path1, parameters params){
  *   path2: output path_struct
  *   params: (constant) parameters for the run
 */
-void calcMDpos(averages* path0, averages* path1, averages* path2, parameters params){
+void calcMDItopos(averages* path0, averages* path1, averages* path2, parameters params){
   // calculate the right hand side vector for the MD steps
   // this is x^{(2)} vector in the notes
 
@@ -264,7 +355,7 @@ void calcMDpos(averages* path0, averages* path1, averages* path2, parameters par
  *
  *   return: the negative argument of the metropolis hastings test: dE/(2 epsilon)
 */
-double calcEnergyChange(averages* path0, averages* path1, parameters params){
+double calcEChangeIto(averages* path0, averages* path1, parameters params){
 
   int i;
 
@@ -360,6 +451,196 @@ void generateBB(averages* path, parameters params){
   //nondeterministic between Fortran and C
   for(n=1;n<params.NumB-1;n++){
     path[n].bb=alpha*path[n].bb+term0+((double)(n-1))*term;
+  }
+}
+
+// ==================================================================================
+void calcDeltae(averages* path, parameters params){
+  // find the change in energy for each point along the path
+  int i;
+  #pragma omp parallel for
+  for(i=0;i<params.NumB-1;i++){
+    //path[i].deltae = path[i+1].U - path[i].U + path[i].Fbar*(path[i+1].pos -path[i].pos);
+    path[i].deltae = 0.0;
+  }
+}
+// ==================================================================================
+void calcSPDEFiniterhs(averages* path, parameters params){
+  // calculate the right hand side vector for the SPDE
+  // including the boundary conditions from the LHS matrix multiplication
+  // note that the i_th position is (i+1)
+  // temp1: (I+rL)xOld
+  // temp2: dg term
+  // temp3: noise term
+  int i;
+  double temp1, temp2, temp3;
+
+  #pragma omp parallel for private(temp1,temp2,temp3)
+  for(i=1;i<params.NumB-1;i++){
+    temp1 = params.r*path[i-1].pos + (1.-2.*params.r)*path[i].pos + params.r*path[i+1].pos;
+    temp2 = params.deltatau*path[i].dg;
+    temp3 = params.noisePref*path[i].randlist;
+    path[i].rhs=temp1-temp2+temp3;
+  }
+  path[1].rhs+=params.r*path[0].pos;
+  path[params.NumB-2].rhs+=params.r*path[params.NumB-1].pos;
+
+}
+
+
+// ==================================================================================
+void calcMDFiniterhs(averages* path0, averages* path1, parameters params){
+  int i;
+  
+  #pragma omp parallel for
+  for(i=1; i<params.NumB-1;i++){
+
+    path1[i].rhs  = 2.0*(params.r*path1[i-1].pos + (1.0-2.0*params.r)*path1[i].pos + params.r*path1[i+1].pos);
+    path1[i].rhs += -1.0*(-params.r*path0[i-1].pos + (1.0+2.0*params.r)*path0[i].pos - params.r*path0[i+1].pos);
+    path1[i].rhs -= 2.0*params.deltatau*path1[i].dg;
+  }
+
+  // remember that the path1[0].pos is the boundary condition of the path2 struct
+  // even though it is unknown at this point, the BC is known
+  path1[1].rhs += params.r*path0[0].pos;
+  path1[params.NumB-2].rhs += params.r*path1[params.NumB-1].pos;
+
+}
+
+
+// ==================================================================================
+double calcEnergyChangeFinite(averages* path0, averages* path1, parameters params){
+  int i;
+  //temp storage for the sum of Phi for path0
+  double Phi0=0.0;
+  //temp storage for the sum of Phi for path1
+  double Phi1=0.0;
+  // temp var for first term in notes
+  double temp1=0.0;
+  // temp var for second term in notes
+  double temp2=0.0;
+  // temp var for the inner term of the sum (Lx1-dg1+Lx0-dg0)
+  double temp2inner=0.0;
+
+  double invdt2=params.invdt*params.invdt;
+
+  // calculate the sum of Phi for each path
+  for(i=0;i<params.NumB-1;i++){
+    Phi0 += path0[i].Phi;
+    Phi1 += path1[i].Phi;
+  }
+
+  //calculate the first term in the notes and multiply by constant
+  for(i=1;i<params.NumB-1;i++){
+    temp1 += (path1[i].dg+path0[i].dg)*(path1[i].pos-path0[i].pos);
+  }
+  temp1 = 0.5*temp1;
+
+  //calculate the second term in the notes, first calcuating the inner 
+  //   term and then the entire term, and finally the constant multiply
+  for(i=1;i<params.NumB-1;i++){
+    //calculate the inner term of the sum
+    temp2inner  = invdt2*(path1[i+1].pos-2.0*path1[i].pos+path1[i-1].pos);
+    temp2inner += invdt2*(path0[i+1].pos-2.0*path0[i].pos+path0[i-1].pos);
+    temp2inner += -path1[i].dg;
+    temp2inner += -path0[i].dg;
+    // incrimenting the sum
+    temp2 += temp2inner*(path1[i].dg-path0[i].dg);
+  }
+  temp2 *= 0.25*params.deltatau;
+
+  //return the change in energy for a single step
+  // this returns the negative of the entire MHMC test argument (dE*dt/2/eps)
+  return (Phi1-Phi0-temp1-temp2)*params.deltat/(2.0*params.eps);
+
+}
+
+
+
+// ==================================================================================
+// Gaussian elimination for computing L.x=b where
+//   L is tridiagonal matrix
+//     mainDiag: 1+2r
+//     upper(lower)Diag: -r
+//
+//   input: the filled path0 state 
+//   output: new path1.pos  
+void GaussElim(averages* path0, averages* path1, parameters params){
+
+  int NumL = params.NumB-2;
+  int i;
+  double temp;
+  
+  // declare the L matrix arrays
+  double al[NumL-1];
+  double am[NumL];
+  double au[NumL-1];
+
+  //initialize the tridiagonal arrays
+  for(i=0;i<NumL-1;i++){ 
+    al[i]=-params.r;
+    am[i]=(1.0+2.0*params.r);
+    au[i]=-params.r;
+  }
+  am[NumL-1]=(1.0+2.0*params.r);
+
+
+  // Gaussian Elimination
+  for(i=0;i<NumL-1;i++){
+    temp=-al[i]/am[i];
+    am[i+1]+=au[i]*temp;
+    path0[i+2].rhs+=path0[i+1].rhs*temp;
+  }
+
+  // Back substitution
+  for(i=0;i<NumL-1;i++){
+    temp=-au[NumL-i-2]/am[NumL-i-1];
+    path0[NumL-i-1].rhs+=path0[NumL-i].rhs*temp;
+  }
+  
+  // Divide by main diagonal
+  for(i=0;i<NumL;i++){
+    path0[i+1].rhs=path0[i+1].rhs/am[i];
+  }
+
+  // Now the rhs vector transformed to the new position vector
+  // save the new positions to the path1 positions
+  for(i=1;i<params.NumB-1;i++){
+    path1[i].pos=path0[i].rhs;
+
+  // set the boundary conditions on the new path positions
+  // BCs are not included in the Gaussan elimination
+  path1[0].pos=path0[0].pos;
+  path1[params.NumB-1].pos=path0[params.NumB-1].pos;
+  }
+}
+
+// ==================================================================================
+// calcdg: Calculate the sum of the energy error between at each time interval
+// (for a specific itegration method) for the entire path
+void calcdg(averages* path, parameters params){
+  // calculate dG/dx for the structure
+  // intial positions/force/Hessian must be filled
+  int i;
+
+  #pragma omp parallel for
+  for(i=1;i<params.NumB-1;i++){
+    path[i].dg  = 0.5 *(path[i].Fbar *path[i].Fpbar + params.eps * path[i].Fppbar /(1.0 - 0.5* params.deltat * path[i].Fpbar));
+    path[i].dg += 0.5 *(path[i-1].Fbar *path[i-1].Fpbar + params.eps * path[i-1].Fppbar /(1.0 - 0.5* params.deltat * path[i-1].Fpbar));
+  }
+}
+
+// ==================================================================================
+void calcPhi(averages* path, parameters params){
+  int i;
+
+  double Psi;
+
+  #pragma omp parallel for private(Psi)
+  for(i=0;i<params.NumB-1;i++){
+    Psi = 0.5*path[i].Fbar*path[i].Fbar - 2.0 * params.eps * params.invdt * log(1.0 - params.deltat*0.5*path[i].Fpbar);
+    path[i].Phi = Psi ;
+    
   }
 }
 
