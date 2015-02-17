@@ -72,6 +72,8 @@ import argparse
 parser = argparse.ArgumentParser(description='Ito HMC algorithm (finite time step) for 1D external potential')
 parser.add_argument('--method', type=str,
     help='HMC method to use;              {ito,forward}')
+parser.add_argument('--potential', type=str,
+    help='Potential to use;            Found in potential_defns directory. EX: fatter_skinny')
 parser.add_argument('-i','--infile', type=str, default='inFile.dat', 
     help='input path positions;           default=inFile.dat')
 parser.add_argument('-o','--outfile', type=str, default='outPathFinal.dat', 
@@ -109,7 +111,12 @@ INT=ctypes.c_int
 PINT=ctypes.POINTER(INT)
 
 # import the c code library
-clib=ctypes.CDLL("onedimHMC.so")
+if os.path.isfile("potential_defns/"+args.potential+".so") is False:
+    print "ERROR: Potential file does not exist! Exiting..."
+    sys.exit(1)
+
+clib=ctypes.CDLL("potential_defns/"+args.potential+".so")
+
 
 # fill average position 
 c_calcPosBar=clib.calcPosBar
@@ -354,7 +361,7 @@ def quadraticVariation(path,params):
 
 def writeCurPath(fileName):
     global pathCur
-    np.savetxt(fileName,np.array([pathCur[i].pos for i in range(NumB)]))
+    np.savetxt("output_paths/"+fileName,np.array([pathCur[i].pos for i in range(NumB)]))
 
 def initializeParams(params):
     params.deltat=deltat
@@ -395,9 +402,11 @@ def printStateMD(MDloops):
     elif MDIter != MDloops-1 and MDIter % int(int(args.MD)/5.) == 0:
         printState("MDloop "+str(MDIter))
 
-def MHMC_test(Echange,acc,rej):
+def MHMC_test(Echange):
     global pathCur
     global pathNew
+    global acc
+    global rej
     if math.exp(-Echange) > np.random.random():
         # accept
         acc+=1
@@ -549,7 +558,7 @@ for HMCIter in range(args.HMC):
     printState("MDloop "+str(MDloops-1))
 
     # Metropolis Hasitings Monte-Carlo
-    MHMC_test(Echange,acc,rej)
+    MHMC_test(Echange)
     printPosBasin()
 
 
@@ -561,4 +570,4 @@ for HMCIter in range(args.HMC):
 # print the final path to file
 for i in np.arange(0,len(inPath),1):
     outPath[i]=pathCur[i].pos
-np.savetxt(args.outfile,outPath)
+np.savetxt("output_paths/"+args.outfile,outPath)

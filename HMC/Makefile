@@ -1,11 +1,12 @@
+
+# define compiler
 CC=gcc
 
-# Name of the code to be compiled
-CODENAME=onedimHMC
-
-SOURCE=$(CODENAME).c
-OBJECT=$(CODENAME).o
-SHAREDLIB=$(CODENAME).so
+# get the source files from the potentials directory
+# This will compile all files in that directory
+VPATH = potential_defns
+SRCS = $(wildcard potential_defns/*.c)
+PROGS = $(patsubst %.c,%.so,$(SRCS))
 
 UNAME := $(shell uname)
 
@@ -23,10 +24,9 @@ INCLUDEDIRS= -I/opt/local/include
 LIBDIRS= -L/opt/local/lib
 endif
 
-all: $(CODENAME)
+all: $(PROGS)
 
-$(OBJECT): $(SOURCE) ; $(CC) $(INCLUDEDIRS) $(CFLAGS) -c $(SOURCE)
+%.o: %.c ; $(CC) $(INCLUDEDIRS) $(CFLAGS) -c $< -o $@
+%.so: %.o ; $(CC) -shared $(LIBDIRS) $(LFLAGS) -o $@ $<
 
-$(CODENAME): $(OBJECT) ; $(CC) -shared $(LIBDIRS) $(LFLAGS) -o $(SHAREDLIB) $(OBJECT) 
-
-clean: ; rm -f $(OBJECT) $(SHAREDLIB)
+clean: ; rm -f potential_defns/*.o potential_defns/*.so
