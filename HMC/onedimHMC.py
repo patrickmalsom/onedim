@@ -72,6 +72,8 @@ import argparse
 parser = argparse.ArgumentParser(description='Ito HMC algorithm (finite time step) for 1D external potential')
 parser.add_argument('--method', type=str,
     help='HMC method to use;              {ito,forward}')
+parser.add_argument('--potential', type=str,
+    help='Potential to use;            Found in potential_defns directory. EX: fatter_skinny')
 parser.add_argument('-i','--infile', type=str, default='inFile.dat', 
     help='input path positions;           default=inFile.dat')
 parser.add_argument('-o','--outfile', type=str, default='outPathFinal.dat', 
@@ -109,7 +111,12 @@ INT=ctypes.c_int
 PINT=ctypes.POINTER(INT)
 
 # import the c code library
-clib=ctypes.CDLL("potential_defns/fatter_skinny.so")
+if os.path.isfile("potential_defns/"+args.potential+".so") is False:
+    print "ERROR: Potential file does not exist! Exiting..."
+    sys.exit(1)
+
+clib=ctypes.CDLL("potential_defns/"+args.potential+".so")
+
 
 # fill average position 
 c_calcPosBar=clib.calcPosBar
