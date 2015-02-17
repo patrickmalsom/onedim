@@ -109,7 +109,7 @@ INT=ctypes.c_int
 PINT=ctypes.POINTER(INT)
 
 # import the c code library
-clib=ctypes.CDLL("onedimHMC.so")
+clib=ctypes.CDLL("potential_defns/fatter_skinny.so")
 
 # fill average position 
 c_calcPosBar=clib.calcPosBar
@@ -354,7 +354,7 @@ def quadraticVariation(path,params):
 
 def writeCurPath(fileName):
     global pathCur
-    np.savetxt(fileName,np.array([pathCur[i].pos for i in range(NumB)]))
+    np.savetxt("output_paths/"+fileName,np.array([pathCur[i].pos for i in range(NumB)]))
 
 def initializeParams(params):
     params.deltat=deltat
@@ -561,4 +561,4 @@ for HMCIter in range(args.HMC):
 # print the final path to file
 for i in np.arange(0,len(inPath),1):
     outPath[i]=pathCur[i].pos
-np.savetxt(args.outfile,outPath)
+np.savetxt("output_paths/"+args.outfile,outPath)
