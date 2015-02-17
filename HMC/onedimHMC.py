@@ -395,9 +395,11 @@ def printStateMD(MDloops):
     elif MDIter != MDloops-1 and MDIter % int(int(args.MD)/5.) == 0:
         printState("MDloop "+str(MDIter))
 
-def MHMC_test(Echange,acc,rej):
+def MHMC_test(Echange):
     global pathCur
     global pathNew
+    global acc
+    global rej
     if math.exp(-Echange) > np.random.random():
         # accept
         acc+=1
@@ -549,7 +551,7 @@ for HMCIter in range(args.HMC):
     printState("MDloop "+str(MDloops-1))
 
     # Metropolis Hasitings Monte-Carlo
-    MHMC_test(Echange,acc,rej)
+    MHMC_test(Echange)
     printPosBasin()
 
 
