@@ -21,6 +21,12 @@
  *   ForcePr:   F'(x)=dF/dx   -> returns the first deriv of force
  *   ForcePrPr: F''(x)=dF'/dx -> returns the second deriv of force
 */
+
+double Pot(double x){
+  return 1. + x*x*(-3.375 + x*(1.6875 + x*(2.84765625 + (-2.84765625 + 0.7119140625*x)*x)));
+}
+
+
 double Force(double x){
   return x*(6.75 + x*(-5.0625 + x*(-11.390625 + (14.23828125 - 4.271484375*x)*x)));
 }

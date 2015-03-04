@@ -298,8 +298,8 @@ void calcDeltae(averages* path, parameters params){
   int i;
   #pragma omp parallel for
   for(i=0;i<params.NumB-1;i++){
-    //path[i].deltae = path[i+1].U - path[i].U + path[i].Fbar*(path[i+1].pos -path[i].pos);
-    path[i].deltae = 0.0;
+    path[i].deltae = path[i+1].U - path[i].U + path[i].Fbar*(path[i+1].pos -path[i].pos);
+    //path[i].deltae = 0.0;
   }
 }
 // ==================================================================================
@@ -465,6 +465,8 @@ void calcdg(averages* path, parameters params){
   for(i=1;i<params.NumB-1;i++){
     path[i].dg  = 0.5 *(path[i].Fbar *path[i].Fpbar + params.eps * path[i].Fppbar /(1.0 - 0.5* params.deltat * path[i].Fpbar));
     path[i].dg += 0.5 *(path[i-1].Fbar *path[i-1].Fpbar + params.eps * path[i-1].Fppbar /(1.0 - 0.5* params.deltat * path[i-1].Fpbar));
+    path[i].dg -= params.invdt * ( path[i].F - path[i].Fbar + 0.5*(path[i+1].pos - path[i].pos) * path[i].Fpbar );
+    path[i].dg -= params.invdt * ( -path[i].F + path[i-1].Fbar + 0.5*(path[i].pos - path[i-1].pos) * path[i-1].Fpbar );
   }
 }
 
@@ -477,7 +479,7 @@ void calcPhi(averages* path, parameters params){
   #pragma omp parallel for private(Psi)
   for(i=0;i<params.NumB-1;i++){
     Psi = 0.5*path[i].Fbar*path[i].Fbar - 2.0 * params.eps * params.invdt * log(1.0 - params.deltat*0.5*path[i].Fpbar);
-    path[i].Phi = Psi ;
+    path[i].Phi = Psi - path[i].deltae*params.invdt;
     
   }
 }

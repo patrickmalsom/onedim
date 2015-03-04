@@ -200,6 +200,7 @@ class Averages(ctypes.Structure):
               # random gaussian numbers
               ('randlist', DOUBLE),
               # forces
+              ('U', DOUBLE),
               ('F', DOUBLE),
               ('Fbar', DOUBLE),
               ('Fp', DOUBLE),
@@ -270,6 +271,7 @@ def rotatePaths():
 
 def FillCurIto():
     global pathCur, params
+    c_calcPot(pathCur, params);
     c_calcForces(pathCur, params);
     c_calcForcesPrime(pathCur, params);
     c_calcForcesDoublePrime(pathCur, params);
@@ -279,6 +281,7 @@ def FillCurIto():
 
 def FillNewIto():
     global pathNew, params
+    c_calcPot(pathNew, params);
     c_calcForces(pathNew, params);
     c_calcForcesPrime(pathNew, params);
     c_calcForcesDoublePrime(pathNew, params);
@@ -289,6 +292,7 @@ def FillNewIto():
 def FillCurFinite():
     global pathCur, params
     c_calcPosBar(pathCur, params);
+    c_calcPot(pathCur, params);
     c_calcForces(pathCur, params);
     c_calcForcesBar(pathCur, params);
     c_calcForcesPrimeBar(pathCur, params);
@@ -300,6 +304,7 @@ def FillCurFinite():
 def FillNewFinite():
     global pathNew, params
     c_calcPosBar(pathNew, params);
+    c_calcPot(pathNew, params);
     c_calcForces(pathNew, params);
     c_calcForcesBar(pathNew, params);
     c_calcForcesPrimeBar(pathNew, params);

@@ -36,6 +36,7 @@ typedef struct _path
   // random gaussian numbers
   double randlist;
   // forces
+  double U;
   double F;
   double Fbar;
   double Fp;
