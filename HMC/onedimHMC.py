@@ -71,7 +71,7 @@ import os
 import argparse
 parser = argparse.ArgumentParser(description='Ito HMC algorithm (finite time step) for 1D external potential')
 parser.add_argument('--method', type=str,
-    help='HMC method to use;              {ito,forward}')
+    help='HMC method to use;              {ito,finite}')
 parser.add_argument('--potential', type=str,
     help='Potential to use;            Found in potential_defns directory. EX: fatter_skinny')
 parser.add_argument('-i','--infile', type=str, default='inFile.dat', 
@@ -122,6 +122,7 @@ clib=ctypes.CDLL("potential_defns/"+args.potential+".so")
 c_calcPosBar=clib.calcPosBar
 
 # fill Forces
+c_calcPot=clib.calcPot
 c_calcForces=clib.calcForces
 c_calcForcesBar=clib.calcForcesBar
 c_calcForcesPrime=clib.calcForcesPrime
@@ -518,8 +519,8 @@ for HMCIter in range(args.HMC):
     printState("SPDE")
 
     # ============ MD LOOP =================
-    #MDloops=max(1,int(args.MD*(0.5 + np.random.random())))
-    MDloops=int(args.MD)
+    MDloops=max(1,int(args.MD*(0.5 + np.random.random())))
+    #MDloops=int(args.MD)
 
     # ITO MD LOOP
     if (args.method == "ito"):
