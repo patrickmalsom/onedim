@@ -10,6 +10,16 @@ void calcPosBar(averages* path, parameters params){
   }
 }
 // ==================================================================================
+void calcPot(averages* path, parameters params){
+  // fill out the Force variables for the struce
+  // initial params must have the positions filled
+  int i;
+  #pragma omp parallel for
+  for(i=0;i<params.NumB;i++){
+    path[i].U = Pot(path[i].pos);
+  }
+}
+// ==================================================================================
 void calcForces(averages* path, parameters params){
   // fill out the Force variables for the struce
   // initial params must have the positions filled
