@@ -408,6 +408,28 @@ def printStateMD(MDloops):
     elif MDIter != MDloops-1 and MDIter % int(int(args.MD)/5.) == 0:
         printState("MDloop "+str(MDIter))
 
+def printDebugFinite(path0,path1,path2,params):
+    # debugging function. prints many random values
+        print "path0[20000]: de:%f Phi:%f dg:%f" % (path0[20000].deltae, path0[20000].Phi, path0[20000].dg)
+        print "path1[20000]: de:%f Phi:%f dg:%f" % (path1[20000].deltae, path1[20000].Phi, path1[20000].dg)
+        print "path2[20000]: de:%f Phi:%f dg:%f" % (path2[20000].deltae, path2[20000].Phi, path2[20000].dg)
+        print "total deltae: %f" % (float(sum([path1[i].deltae for i in range(NumB)])))
+        print "total abs(deltae): %f" % (float(sum([abs(path1[i].deltae) for i in range(NumB)])))
+        print "total Phi: %f" % (float(sum([path1[i].Phi for i in range(NumB)])))
+        print "total abs(Phi): %f" % (float(sum([abs(path1[i].Phi) for i in range(NumB)])))
+        print "F1:%f F0:%f x1:%f x0:%f" % (path1[10001].F,path1[20000].F,path1[10001].pos,path1[20000].pos)
+
+        np.savetxt('debugpath1.out', np.array([pathCur[i].pos for i in range(NumB)]))   # X is an array
+
+def printDebugIto(path0,path1,path2,params):
+    print "path0[20000]: de:%f G:%f gradG:%f" % (path0[20000].deltae, path0[20000].G, path0[20000].gradG)
+    print "path1[20000]: de:%f G:%f gradG:%f" % (path1[20000].deltae, path1[20000].G, path1[20000].gradG)
+    print "path2[20000]: de:%f G:%f gradG:%f" % (path2[20000].deltae, path2[20000].G, path2[20000].gradG)
+    print "total deltae: %f" % (float(sum([path1[i].deltae for i in range(NumB)])))
+    print "total abs(deltae): %f" % (float(sum([abs(path1[i].deltae) for i in range(NumB)])))
+    print "total G: %f" % (float(sum([path1[i].G for i in range(NumB)])))
+    print "total abs(G): %f" % (float(sum([abs(path1[i].G) for i in range(NumB)])))
+
 def MHMC_test(Echange):
     global pathCur
     global pathNew
@@ -540,6 +562,7 @@ for HMCIter in range(args.HMC):
 
             # print some of the MD states (~10 total)
             printStateMD(MDloops)
+            printDebugIto(pathOld,pathCur,pathNew,params)
 
     # ITO SPDE LOOP
     elif (args.method == "finite"):
@@ -557,6 +580,7 @@ for HMCIter in range(args.HMC):
 
             # print some of the MD states (~10 total)
             printStateMD(MDloops)
+            printDebugFinite(pathOld,pathCur,pathNew,params)
     else:
         print "BAD METHOD!"
 
