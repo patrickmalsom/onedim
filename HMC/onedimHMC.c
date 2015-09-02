@@ -304,11 +304,18 @@ void generateBB(averages* path, parameters params){
 
 // ==================================================================================
 void calcDeltae(averages* path, parameters params){
+//TODO: changes for leapfrog: eqn 7.61 (midpt 7.32)
   // find the change in energy for each point along the path
   int i;
   #pragma omp parallel for
   for(i=0;i<params.NumB-1;i++){
+    /*
+    //midpt
     path[i].deltae = path[i+1].U - path[i].U + path[i].Fbar*(path[i+1].pos -path[i].pos);
+    */
+    //leapfrog
+    path[i].deltae = path[i+1].U - path[i].U + (path[i+1].pos-path[i].pos) * (path[i+1].F+path[i].F)*0.5 + params.deltat*0.25*(path[i+1].F*path[i+1].F - path[i].F*path[i].F);
+    //force error to be zero (testing)
     //path[i].deltae = 0.0;
   }
 }
@@ -358,16 +365,19 @@ void calcMDFiniterhs(averages* path0, averages* path1, parameters params){
 
 // ==================================================================================
 double calcEnergyChangeFinite(averages* path0, averages* path1, parameters params){
+// thesis_eqn 7.54 
   int i;
   //temp storage for the sum of Phi for path0
   double Phi0=0.0;
   //temp storage for the sum of Phi for path1
   double Phi1=0.0;
-  // temp var for first term in notes
+
+  // temp var for first sum (dg1+dg0)*(x1-x0)
   double temp1=0.0;
-  // temp var for second term in notes
+
+  // temp var for second sum
   double temp2=0.0;
-  // temp var for the inner term of the sum (Lx1-dg1+Lx0-dg0)
+  // temp var for the first inner term of the second sum (Lx1-dg1+Lx0-dg0)
   double temp2inner=0.0;
 
   double invdt2=params.invdt*params.invdt;
@@ -378,7 +388,7 @@ double calcEnergyChangeFinite(averages* path0, averages* path1, parameters param
     Phi1 += path1[i].Phi;
   }
 
-  //calculate the first term in the notes and multiply by constant
+  //calculate the first sum in thesis_eqn 7.54 and multiply by half
   for(i=1;i<params.NumB-1;i++){
     temp1 += (path1[i].dg+path0[i].dg)*(path1[i].pos-path0[i].pos);
   }
@@ -466,6 +476,7 @@ void GaussElim(averages* path0, averages* path1, parameters params){
 // ==================================================================================
 // calcdg: Calculate the sum of the energy error between at each time interval
 // (for a specific itegration method) for the entire path
+//TODO: changes for leapfrog: eqn 7.63 and 7.64 (midpoint 7.34 and 7.35)
 void calcdg(averages* path, parameters params){
   // calculate dG/dx for the structure
   // intial positions/force/Hessian must be filled
@@ -473,14 +484,30 @@ void calcdg(averages* path, parameters params){
 
   #pragma omp parallel for
   for(i=1;i<params.NumB-1;i++){
+    /*
+    //midpt
     path[i].dg  = 0.5 *(path[i].Fbar *path[i].Fpbar + params.eps * path[i].Fppbar /(1.0 - 0.5* params.deltat * path[i].Fpbar));
     path[i].dg += 0.5 *(path[i-1].Fbar *path[i-1].Fpbar + params.eps * path[i-1].Fppbar /(1.0 - 0.5* params.deltat * path[i-1].Fpbar));
     path[i].dg -= params.invdt * ( path[i].F - path[i].Fbar + 0.5*(path[i+1].pos - path[i].pos) * path[i].Fpbar );
     path[i].dg -= params.invdt * ( -path[i].F + path[i-1].Fbar + 0.5*(path[i].pos - path[i-1].pos) * path[i-1].Fpbar );
+    */
+
+    //leapfrog
+    path[i].dg  = path[i].Fp*path[i].F - 0.5*params.invdt*(path[i+1].F - path[i].F) ;
+    path[i].dg += 0.5*params.invdt*(path[i].F - path[i-1].F);
+    path[i].dg -= params.invdt * ( path[i].F - 0.5*(path[i+1].F + path[i].F) + 0.5*(path[i+1].pos - path[i].pos)*path[i].Fp);
+    path[i].dg -= params.invdt * (-path[i].F + 0.5*(path[i].F + path[i-1].F) + 0.5*(path[i].pos - path[i-1].pos)*path[i].Fp);
+
+    /*
+    //leapfrog
+    path[i].dg = path[i].F*path[i].Fp + params.invdt*(path[i].F-path[i-1].F) - params.invdt*(path[i+1].pos - path[i].pos)*path[i].Fp;
+    */
   }
 }
 
 // ==================================================================================
+//TODO: changes for leapfrog: eqn 7.62  (midpoint 7.33)
+//defined from eqn 7.27 and 7.28 as well
 void calcPhi(averages* path, parameters params){
   int i;
 
@@ -488,8 +515,18 @@ void calcPhi(averages* path, parameters params){
 
   #pragma omp parallel for private(Psi)
   for(i=0;i<params.NumB-1;i++){
+    /*
+    //midpt
     Psi = 0.5*path[i].Fbar*path[i].Fbar - 2.0 * params.eps * params.invdt * log(1.0 - params.deltat*0.5*path[i].Fpbar);
     path[i].Phi = Psi - path[i].deltae*params.invdt;
+    */
+    /*
+    //leapfrog
+    Psi = 0.25*path[i+1].F*path[i+1].F + 0.25*path[i].F*path[i].F + 0.5*(path[i+1].pos - path[i].pos)*params.invdt * (path[i+1].F + path[i].F);
+    path[i].Phi = Psi - path[i].deltae*params.invdt;
+    */
+    //leapfrog
+    path[i].Phi = 0.5*path[i].F*path[i].F - path[i].F*(path[i+1].pos - path[i].pos)*params.invdt;
     
   }
 }
