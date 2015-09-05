@@ -158,6 +158,29 @@ void calcSPDEItopos(averages* path0, averages* path1, parameters params){
 
 }
 
+// ==================================================================================
+void calcSPDEFiniterhs(averages* path, parameters params){
+  // calculate the right hand side vector for the SPDE
+  // including the boundary conditions from the LHS matrix multiplication
+  // note that the i_th position is (i+1)
+  // temp1: (I+rL)xOld
+  // temp2: dg term
+  // temp3: noise term
+  int i;
+  double temp1, temp2, temp3;
+
+  #pragma omp parallel for private(temp1,temp2,temp3)
+  for(i=1;i<params.NumB-1;i++){
+    temp1 = params.r*path[i-1].pos + (1.-2.*params.r)*path[i].pos + params.r*path[i+1].pos;
+    temp2 = params.deltatau*path[i].dg;
+    temp3 = params.noisePref*path[i].randlist;
+    path[i].rhs=temp1-temp2+temp3;
+  }
+  path[1].rhs+=params.r*path[0].pos;
+  path[params.NumB-2].rhs+=params.r*path[params.NumB-1].pos;
+
+}
+
 /* =====================================================================
  * Function: calcMDpos
  * -----------------------------
@@ -307,41 +330,23 @@ void calcDeltae(averages* path, parameters params){
 //TODO: changes for leapfrog: eqn 7.61 (midpt 7.32)
   // find the change in energy for each point along the path
   int i;
-  #pragma omp parallel for
-  for(i=0;i<params.NumB-1;i++){
-    /*
-    //midpt
-    path[i].deltae = path[i+1].U - path[i].U + path[i].Fbar*(path[i+1].pos -path[i].pos);
-    */
-    //leapfrog
-    path[i].deltae = path[i+1].U - path[i].U + (path[i+1].pos-path[i].pos) * (path[i+1].F+path[i].F)*0.5 + params.deltat*0.25*(path[i+1].F*path[i+1].F - path[i].F*path[i].F);
-    //force error to be zero (testing)
-    //path[i].deltae = 0.0;
+
+  //midpt (finite method -> 0)
+  if(params.finiteMethod == 0){
+    #pragma omp parallel for
+    for(i=0;i<params.NumB-1;i++){
+      path[i].deltae = path[i+1].U - path[i].U + path[i].Fbar*(path[i+1].pos -path[i].pos);
+    }
+  }
+
+  //leapfrog (finite method -> 1)
+  else if(params.finiteMethod == 1){
+    #pragma omp parallel for
+    for(i=0;i<params.NumB-1;i++){
+      path[i].deltae = path[i+1].U - path[i].U + (path[i+1].pos-path[i].pos) * (path[i+1].F+path[i].F)*0.5 + params.deltat*0.25*(path[i+1].F*path[i+1].F - path[i].F*path[i].F);
+    }
   }
 }
-// ==================================================================================
-void calcSPDEFiniterhs(averages* path, parameters params){
-  // calculate the right hand side vector for the SPDE
-  // including the boundary conditions from the LHS matrix multiplication
-  // note that the i_th position is (i+1)
-  // temp1: (I+rL)xOld
-  // temp2: dg term
-  // temp3: noise term
-  int i;
-  double temp1, temp2, temp3;
-
-  #pragma omp parallel for private(temp1,temp2,temp3)
-  for(i=1;i<params.NumB-1;i++){
-    temp1 = params.r*path[i-1].pos + (1.-2.*params.r)*path[i].pos + params.r*path[i+1].pos;
-    temp2 = params.deltatau*path[i].dg;
-    temp3 = params.noisePref*path[i].randlist;
-    path[i].rhs=temp1-temp2+temp3;
-  }
-  path[1].rhs+=params.r*path[0].pos;
-  path[params.NumB-2].rhs+=params.r*path[params.NumB-1].pos;
-
-}
-
 
 // ==================================================================================
 void calcMDFiniterhs(averages* path0, averages* path1, parameters params){
@@ -482,26 +487,29 @@ void calcdg(averages* path, parameters params){
   // intial positions/force/Hessian must be filled
   int i;
 
-  #pragma omp parallel for
-  for(i=1;i<params.NumB-1;i++){
-    /*
-    //midpt
-    path[i].dg  = 0.5 *(path[i].Fbar *path[i].Fpbar + params.eps * path[i].Fppbar /(1.0 - 0.5* params.deltat * path[i].Fpbar));
-    path[i].dg += 0.5 *(path[i-1].Fbar *path[i-1].Fpbar + params.eps * path[i-1].Fppbar /(1.0 - 0.5* params.deltat * path[i-1].Fpbar));
-    path[i].dg -= params.invdt * ( path[i].F - path[i].Fbar + 0.5*(path[i+1].pos - path[i].pos) * path[i].Fpbar );
-    path[i].dg -= params.invdt * ( -path[i].F + path[i-1].Fbar + 0.5*(path[i].pos - path[i-1].pos) * path[i-1].Fpbar );
-    */
+  //midpt (finite method -> 0)
+  if(params.finiteMethod == 0){
+    #pragma omp parallel for
+    for(i=1;i<params.NumB-1;i++){
+      path[i].dg  = 0.5 *(path[i].Fbar *path[i].Fpbar + params.eps * path[i].Fppbar /(1.0 - 0.5* params.deltat * path[i].Fpbar));
+      path[i].dg += 0.5 *(path[i-1].Fbar *path[i-1].Fpbar + params.eps * path[i-1].Fppbar /(1.0 - 0.5* params.deltat * path[i-1].Fpbar));
+      path[i].dg -= params.invdt * ( path[i].F - path[i].Fbar + 0.5*(path[i+1].pos - path[i].pos) * path[i].Fpbar );
+      path[i].dg -= params.invdt * ( -path[i].F + path[i-1].Fbar + 0.5*(path[i].pos - path[i-1].pos) * path[i-1].Fpbar );
+    }
+  }
 
-    //leapfrog
-    path[i].dg  = path[i].Fp*path[i].F - 0.5*params.invdt*(path[i+1].F - path[i].F) ;
-    path[i].dg += 0.5*params.invdt*(path[i].F - path[i-1].F);
-    path[i].dg -= params.invdt * ( path[i].F - 0.5*(path[i+1].F + path[i].F) + 0.5*(path[i+1].pos - path[i].pos)*path[i].Fp);
-    path[i].dg -= params.invdt * (-path[i].F + 0.5*(path[i].F + path[i-1].F) + 0.5*(path[i].pos - path[i-1].pos)*path[i].Fp);
-
-    /*
-    //leapfrog
-    path[i].dg = path[i].F*path[i].Fp + params.invdt*(path[i].F-path[i-1].F) - params.invdt*(path[i+1].pos - path[i].pos)*path[i].Fp;
-    */
+  //leapfrog (finite method -> 1)
+  else if(params.finiteMethod == 1){
+    #pragma omp parallel for
+    for(i=1;i<params.NumB-1;i++){
+      //direct calculation
+      path[i].dg = path[i].F*path[i].Fp + params.invdt*(path[i].F - path[i-1].F - path[i].Fp*(path[i+1].pos - path[i].pos));
+      //thesis calculation
+      //path[i].dg  = path[i].Fp*path[i].F - 0.5*params.invdt*(path[i+1].F - path[i].F) ;
+      //path[i].dg += 0.5*params.invdt*(path[i].F - path[i-1].F);
+      //path[i].dg -= params.invdt * ( path[i].F - 0.5*(path[i+1].F + path[i].F) + 0.5*(path[i+1].pos - path[i].pos)*path[i].Fp);
+      //path[i].dg -= params.invdt * (-path[i].F + 0.5*(path[i].F + path[i-1].F) + 0.5*(path[i].pos - path[i-1].pos)*path[i].Fp);
+    }
   }
 }
 
@@ -511,23 +519,23 @@ void calcdg(averages* path, parameters params){
 void calcPhi(averages* path, parameters params){
   int i;
 
-  double Psi;
+  //midpt (finite method -> 0)
+  if(params.finiteMethod == 0){
+    #pragma omp parallel for
+    for(i=0;i<params.NumB-1;i++){
+      path[i].Phi = 0.5*path[i].Fbar*path[i].Fbar - 2.0 * params.eps * params.invdt * log(1.0 - params.deltat*0.5*path[i].Fpbar) - path[i].deltae*params.invdt;
+    }
+  }
 
-  #pragma omp parallel for private(Psi)
-  for(i=0;i<params.NumB-1;i++){
-    /*
-    //midpt
-    Psi = 0.5*path[i].Fbar*path[i].Fbar - 2.0 * params.eps * params.invdt * log(1.0 - params.deltat*0.5*path[i].Fpbar);
-    path[i].Phi = Psi - path[i].deltae*params.invdt;
-    */
-    /*
-    //leapfrog
-    Psi = 0.25*path[i+1].F*path[i+1].F + 0.25*path[i].F*path[i].F + 0.5*(path[i+1].pos - path[i].pos)*params.invdt * (path[i+1].F + path[i].F);
-    path[i].Phi = Psi - path[i].deltae*params.invdt;
-    */
-    //leapfrog
-    path[i].Phi = 0.5*path[i].F*path[i].F - path[i].F*(path[i+1].pos - path[i].pos)*params.invdt;
-    
+  //leapfrog (finite method -> 1)
+  else if(params.finiteMethod == 1){
+    #pragma omp parallel for
+    for(i=0;i<params.NumB-1;i++){
+      //using deltae[i]
+      //path[i].Phi = 0.25*path[i+1].F*path[i+1].F + 0.25*path[i].F*path[i].F + 0.5*(path[i+1].pos - path[i].pos)*params.invdt * (path[i+1].F - path[i].F) - path[i].deltae*params.invdt;
+      //direct calculation
+      path[i].Phi = 0.5*path[i].F*path[i].F - path[i].F*(path[i+1].pos - path[i].pos)*params.invdt;
+    }
   }
 }
 
