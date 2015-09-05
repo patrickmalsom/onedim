@@ -587,8 +587,8 @@ for HMCIter in range(args.HMC):
     printState("SPDE")
 
     # ============ MD LOOP =================
-    #MDloops=max(1,int(args.MD*(0.5 + np.random.random())))
-    MDloops=int(args.MD)
+    MDloops=max(1,int(args.MD*(0.5 + np.random.random())))
+    #MDloops=int(args.MD)
 
     # ITO MD LOOP
     if (args.method == "ito"):
