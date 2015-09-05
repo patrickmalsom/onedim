@@ -24,6 +24,7 @@ typedef struct _parameters
   double noisePref;
   double r;
   int NumB;
+  int finiteMethod;
 } parameters;
 
 // Path Struct

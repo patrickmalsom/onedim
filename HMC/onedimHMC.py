@@ -72,28 +72,32 @@ import argparse
 parser = argparse.ArgumentParser(description='Ito HMC algorithm (finite time step) for 1D external potential')
 parser.add_argument('--method', type=str,
     help='HMC method to use;              {ito,finite}')
+parser.add_argument('--finiteMethod', type=str,default='midpt',
+    help='finite integrator to use;       default=midpt;   EX:{midpt,leapfrog}')
 parser.add_argument('--potential', type=str,
-    help='Potential to use;            Found in potential_defns directory. EX: fatter_skinny')
+    help='Potential to use;   Found in potential_defns dir; EX: fatter_skinny')
 parser.add_argument('-i','--infile', type=str, default='inFile.dat', 
     help='input path positions;           default=inFile.dat')
 parser.add_argument('-o','--outfile', type=str, default='outPathFinal.dat', 
     help='output path positions;          default=outPathFinal.dat')
-parser.add_argument('-T','--temperature', type=float, default=0.15, 
-    help='configurational temperature;    default=0.15')
+parser.add_argument('-T','--temperature', type=float, default=0.25, 
+    help='configurational temperature;    default=0.25')
 parser.add_argument('--deltat', type=float, default=0.005, 
     help='time step along the path;       default=0.005')
-parser.add_argument('--deltatau', type=float, default=10**(-5), 
-    help='time step between paths;        default=10**(-5)')
-parser.add_argument('--Num', type=int, default=10001, 
-    help='path length (num beads);        default=10001')
+parser.add_argument('--deltatau', type=float, default=10**(-6), 
+    help='time step between paths;        default=10**(-6)')
+parser.add_argument('--Num', type=int, default=30001, 
+    help='path length (num beads);        default=30001')
 parser.add_argument('--HMC', type=int, default=2, 
     help='HMC loops (SDE+MD+MC);          default=2')
 parser.add_argument('--MD', type=int, default=150, 
     help='MD steps per full HMC;          default=150')
-parser.add_argument('--WriteFiles', type=int, default=5, 
-    help='Number of files to write;       default=5')
+parser.add_argument('--WriteFiles', type=int, default=1, 
+    help='Number of files to write;       default=1')
 parser.add_argument('--RNGseed', type=int, 
-    help='random number seed;             default=random')
+    help='random number seed;             default=SysRandom')
+parser.add_argument('--debugstruct', type=str, default='0',
+    help='debug: save struct to file;     defaults to off, enter name of debug file to turn on')
 args = parser.parse_args()
 
 # python profiler
@@ -169,6 +173,16 @@ eps=args.temperature # configurational temperature
 deltatau=args.deltatau # time step between paths
 NumB=args.Num# number of 'beads' (total positions in path, path length)
 
+# finite method initialization
+#   this will store the integer associated with the method to the 
+#   parameters struct for use in the C code (deltae, Phi, dg)
+availableFiniteMethods={'midpt':0,'leapfrog':1}
+if args.finiteMethod in availableFiniteMethods:
+    finiteMethod=availableFiniteMethods[args.finiteMethod]
+else:
+    print "finite method does not exist! exiting..."
+    sys.exit(1)
+
 invdt=1/deltat # reciprocal of time step
 noisePref=math.sqrt(4.0*eps*deltatau*invdt) # scaling for the random noise term
 r=deltatau*0.5*invdt*invdt # constant matrix element in L (I+-rL)
@@ -189,6 +203,7 @@ class Parameters(ctypes.Structure):
               ('noisePref', DOUBLE),
               ('r', DOUBLE),
               ('NumB', INT),
+              ('finiteMethod', INT)
              ]
 # define the array of averages that is to be passed to the C routine
 paramType=Parameters
@@ -296,7 +311,9 @@ def FillCurFinite():
     c_calcPot(pathCur, params);
     c_calcForces(pathCur, params);
     c_calcForcesBar(pathCur, params);
+    c_calcForcesPrime(pathCur, params);
     c_calcForcesPrimeBar(pathCur, params);
+    c_calcForcesDoublePrime(pathCur, params);
     c_calcForcesDoublePrimeBar(pathCur, params);
     c_calcDeltae(pathCur, params);
     c_calcdg(pathCur, params);
@@ -308,7 +325,9 @@ def FillNewFinite():
     c_calcPot(pathNew, params);
     c_calcForces(pathNew, params);
     c_calcForcesBar(pathNew, params);
+    c_calcForcesPrime(pathNew, params);
     c_calcForcesPrimeBar(pathNew, params);
+    c_calcForcesDoublePrime(pathNew, params);
     c_calcForcesDoublePrimeBar(pathNew, params);
     c_calcDeltae(pathNew, params);
     c_calcdg(pathNew, params);
@@ -346,8 +365,12 @@ def printState(identifier):
 #    print "Transitions: %d" % (transCt)
 
 def printParams(path,params):
-    print '------------------------------------------------'
-    print 'New HMC algorithm (finite time step) for 1D external potential'
+    print '--------------------------------------------------'
+    print 'Path Space HMC algorithm for 1D external potential'
+    print '--------------------------------------------------'
+    print '  method : %s' % args.method
+    if args.method == 'finite':
+        print '  finiteMethod : %s' % args.finiteMethod
     print '  input file : %s' % args.infile
     print '  md5 hash   : '+hashlib.md5(open(args.infile).read()).hexdigest()
     print '  quadvar eps: %f' % ( quadraticVariation(path,params) )
@@ -377,6 +400,7 @@ def initializeParams(params):
     params.noisePref=noisePref
     params.r=r
     params.NumB=NumB
+    params.finiteMethod=finiteMethod
 
 def setRNGseed():
   # if there is no rng set on cmd line, generate a random one
@@ -419,7 +443,29 @@ def printDebugFinite(path0,path1,path2,params):
         print "total abs(Phi): %f" % (float(sum([abs(path1[i].Phi) for i in range(NumB)])))
         print "F1:%f F0:%f x1:%f x0:%f" % (path1[10001].F,path1[20000].F,path1[10001].pos,path1[20000].pos)
 
-        np.savetxt('debugpath1.out', np.array([pathCur[i].pos for i in range(NumB)]))   # X is an array
+def saveDebugFinite(fileName,path0,path1,path2,params):
+    np.savetxt(fileName+'.out', 
+        [[
+          pathCur[i].pos,
+          pathCur[i].posBar,
+          pathCur[i].randlist,
+          pathCur[i].U,
+          pathCur[i].F,
+          pathCur[i].Fbar,
+          pathCur[i].Fp,
+          pathCur[i].Fpbar,
+          pathCur[i].Fpp,
+          pathCur[i].Fppbar,
+          pathCur[i].deltae,
+          pathCur[i].dg,
+          pathCur[i].Phi,
+          pathCur[i].rhs,
+          pathCur[i].bb,
+          pathCur[i].G,
+          pathCur[i].gradG,
+          pathCur[i].LinvG
+         ] for i in range(NumB)]
+        ,fmt='%8.8f')
 
 def printDebugIto(path0,path1,path2,params):
     print "path0[20000]: de:%f G:%f gradG:%f" % (path0[20000].deltae, path0[20000].G, path0[20000].gradG)
@@ -541,8 +587,8 @@ for HMCIter in range(args.HMC):
     printState("SPDE")
 
     # ============ MD LOOP =================
-    MDloops=max(1,int(args.MD*(0.5 + np.random.random())))
-    #MDloops=int(args.MD)
+    #MDloops=max(1,int(args.MD*(0.5 + np.random.random())))
+    MDloops=int(args.MD)
 
     # ITO MD LOOP
     if (args.method == "ito"):
@@ -562,7 +608,7 @@ for HMCIter in range(args.HMC):
 
             # print some of the MD states (~10 total)
             printStateMD(MDloops)
-            printDebugIto(pathOld,pathCur,pathNew,params)
+            #printDebugIto(pathOld,pathCur,pathNew,params)
 
     # ITO SPDE LOOP
     elif (args.method == "finite"):
@@ -580,7 +626,7 @@ for HMCIter in range(args.HMC):
 
             # print some of the MD states (~10 total)
             printStateMD(MDloops)
-            printDebugFinite(pathOld,pathCur,pathNew,params)
+            #printDebugFinite(pathOld,pathCur,pathNew,params)
     else:
         print "BAD METHOD!"
 
@@ -597,7 +643,12 @@ for HMCIter in range(args.HMC):
     sys.stdout.flush()
 
 
+# struct debugging
+if args.debugstruct != '0':
+    saveDebugFinite(args.debugstruct,pathOld,pathCur,pathNew,params)
+
 # print the final path to file
 for i in np.arange(0,len(inPath),1):
     outPath[i]=pathCur[i].pos
 np.savetxt("output_paths/"+args.outfile,outPath)
+
