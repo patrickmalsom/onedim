@@ -1,14 +1,30 @@
 # HMC algorithm for a 1D potential
 
 This code runs the HMC algorithm for a particle in a 1D potential.
-
-It includes the following methods
+The algorithm is implimented for the following methods:
 
 |  method  | description |
 | -------- | ----------- |
 | ito      | Ito/Girsanov form of HMC (continuous time limit)                |
 | midpt    | Finite time HMC using the mid point integrator                  |
 | leapfrog | Finite time HMC using the LeapFrog (velocity Verlet) integrator |
+
+## Overview of the code
+
+This code uses python's ctypes to exploit the speed of a compiled C library.
+
+## Compiling the C library
+
+Before running this code, the C library must be compiled using the `make` command.
+
+## Running the simulation
+
+`onedimHMC.py` is the main executable used to run the simulation.
+to print the help run the following
+
+```
+./onedimHMC.py -h
+```
 
 ### Adding a new potential
 
