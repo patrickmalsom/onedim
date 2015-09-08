@@ -69,36 +69,46 @@ import os
 
 # Argparse: command line options
 import argparse
-parser = argparse.ArgumentParser(description='Ito HMC algorithm (finite time step) for 1D external potential')
+
+parser = argparse.ArgumentParser(
+             # argparse options
+             description='Ito HMC algorithm (finite time step) for 1D external potential',
+             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
 parser.add_argument('--method', type=str,
-    help='HMC method to use;              {ito,finite}')
+    help='HMC method to use;     options: ito -or- finite')
 parser.add_argument('--finiteMethod', type=str,default='midpt',
     help='finite integrator to use;       default=midpt;   EX:{midpt,leapfrog}')
-parser.add_argument('--potential', type=str,
-    help='Potential to use;   Found in potential_defns dir; EX: fatter_skinny')
-parser.add_argument('-i','--infile', type=str, default='inFile.dat', 
-    help='input path positions;           default=inFile.dat')
-parser.add_argument('-o','--outfile', type=str, default='outPathFinal.dat', 
-    help='output path positions;          default=outPathFinal.dat')
+parser.add_argument('--potential', type=str, default='fatter_skinny',
+    help='Potential to use;   Found in potential_defns dir')
+parser.add_argument('-i','--infile', type=str, default='input_paths/fatterSkinny-T0p25-dt0p005-Nb30k-healed.dat', 
+    help='input path positions')
 parser.add_argument('-T','--temperature', type=float, default=0.25, 
-    help='configurational temperature;    default=0.25')
+    help='configurational temperature')
 parser.add_argument('--deltat', type=float, default=0.005, 
-    help='time step along the path;       default=0.005')
+    help='time step along the path')
 parser.add_argument('--deltatau', type=float, default=10**(-6), 
-    help='time step between paths;        default=10**(-6)')
+    help='time step between paths')
 parser.add_argument('--Num', type=int, default=30001, 
-    help='path length (num beads);        default=30001')
+    help='path length (num beads)')
 parser.add_argument('--HMC', type=int, default=2, 
-    help='HMC loops (SDE+MD+MC);          default=2')
+    help='HMC loops (SDE+MD+MC)')
 parser.add_argument('--MD', type=int, default=150, 
-    help='MD steps per full HMC;          default=150')
-parser.add_argument('--WriteFiles', type=int, default=1, 
-    help='Number of files to write;       default=1')
+    help='MD steps per full HMC')
+parser.add_argument('--WriteFiles', type=int, default=0, 
+    help='Number of files to write')
 parser.add_argument('--RNGseed', type=int, 
-    help='random number seed;             default=SysRandom')
-parser.add_argument('--debugstruct', type=str, default='0',
-    help='debug: save struct to file;     defaults to off, enter name of debug file to turn on')
+    help='random number seed; default uses SysRandom')
+parser.add_argument('--debugstruct', type=str, default='False',
+    help='debug: save struct to file;     enter name of debug file to turn on')
+
+#sys.argv includes a list of elements starting with the program
+if len(sys.argv) < 2:
+    parser.print_usage()
+    sys.exit(1)
+
 args = parser.parse_args()
+
 
 # python profiler
 import cProfile, pstats, StringIO
@@ -638,8 +648,12 @@ for HMCIter in range(args.HMC):
     printPosBasin()
 
 
-    if HMCIter % max(1,int(int(args.HMC)/float(args.WriteFiles))) == 0:
+    if args.WriteFiles is not 0:
+        if (HMCIter % max(1,int(int(args.HMC)/float(args.WriteFiles))) == 0) or (HMCIter == args.HMC):
+            writeCurPath("outPath"+str(HMCIter)+".dat")
+    elif (HMCIter == args.HMC):
         writeCurPath("outPath"+str(HMCIter)+".dat")
+
     sys.stdout.flush()
 
 
@@ -647,8 +661,8 @@ for HMCIter in range(args.HMC):
 if args.debugstruct != '0':
     saveDebugFinite(args.debugstruct,pathOld,pathCur,pathNew,params)
 
-# print the final path to file
-for i in np.arange(0,len(inPath),1):
-    outPath[i]=pathCur[i].pos
-np.savetxt("output_paths/"+args.outfile,outPath)
+## print the final path to file
+#for i in np.arange(0,len(inPath),1):
+#    outPath[i]=pathCur[i].pos
+#np.savetxt("output_paths/"+args.outfile,outPath)
 
