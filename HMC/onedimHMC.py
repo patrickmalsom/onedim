@@ -181,10 +181,10 @@ clib.quadVar.restype = DOUBLE
 # ===============================================
 # constants/parameters
 # ===============================================
-deltat=args.deltat # time step along the path
-eps=args.temperature # configurational temperature
-deltatau=args.deltatau # time step between paths
-NumB=args.Num# number of 'beads' (total positions in path, path length)
+deltat=args.dt # time step along the path
+eps=args.temp # configurational temperature
+deltatau=args.dtau # time step between paths
+NumB=args.pathlen# number of 'beads' (total positions in path, path length)
 
 # finite method initialization
 #   this will store the integer associated with the method to the 
@@ -384,17 +384,17 @@ def printParams(path,params):
     print '  method : %s' % args.method
     if args.method == 'finite':
         print '  finiteMethod : %s' % args.finiteMethod
-    print '  input file : %s' % args.infile
-    print '  md5 hash   : '+hashlib.md5(open(args.infile).read()).hexdigest()
+    print '  input file : %s' % args.inpath
+    print '  md5 hash   : '+hashlib.md5(open(args.inpath).read()).hexdigest()
     print '  quadvar eps: %f' % ( quadraticVariation(path,params) )
     print '  eps  = %f' % params.eps
     print '  dt   = %e' % params.deltat
     print '  dtau = %e' % params.deltatau
     print '  Nb   = %d' % params.NumB
-    print '  HMC  = %d' % args.HMC
-    print '  MD   = %d' % args.MD
-    print '  MD*h = %f' % (float(args.MD) * math.sqrt(2.0*params.deltatau))
-    print "  seed = %d" % args.RNGseed
+    print '  HMC  = %d' % args.HMCsteps
+    print '  MD   = %d' % args.mdsteps
+    print '  MD*h = %f' % (float(args.mdsteps) * math.sqrt(2.0*params.deltatau))
+    print "  seed = %d" % args.seed
     print '------------------------------------------------'
 
 def quadraticVariation(path,params):
@@ -417,10 +417,10 @@ def initializeParams(params):
 
 def setRNGseed():
   # if there is no rng set on cmd line, generate a random one
-  if args.RNGseed is None:
-    args.RNGseed = random.SystemRandom().randint(1,1000000)
+  if args.seed is None:
+    args.seed = random.SystemRandom().randint(1,1000000)
   # set the random seed of numpy
-  np.random.seed(args.RNGseed)
+  np.random.seed(args.seed)
 
 def calcSPDEFinitePos(path0,path1,params):
     # calculate the rhs vecor in the notes
@@ -442,7 +442,7 @@ def printStateMD(MDloops):
     # (less than 10 MD loops print all for debugging)
     if MDloops <= 10 and MDIter != MDloops-1:
         printState("MDloop "+str(MDIter))
-    elif MDIter != MDloops-1 and MDIter % int(int(args.MD)/5.) == 0:
+    elif MDIter != MDloops-1 and MDIter % int(int(args.mdsteps)/5.) == 0:
         printState("MDloop "+str(MDIter))
 
 def printDebugFinite(path0,path1,path2,params):
@@ -519,7 +519,7 @@ def printPosBasin():
 setRNGseed()
 
 # read the input path specified on the cmd line
-inPath=np.loadtxt(args.infile)
+inPath=np.loadtxt(args.inpath)
 
 # Initialize the structs for params and paths
 #   need one parameter struct (constants)
@@ -550,7 +550,7 @@ acc=0
 rej=0
 
 # ============ SPDE/HMC LOOP =================
-for HMCIter in range(args.HMC):
+for HMCIter in range(args.HMCsteps):
 
 
     # save the current path to savePath in case of rejection
@@ -600,8 +600,8 @@ for HMCIter in range(args.HMC):
     printState("SPDE")
 
     # ============ MD LOOP =================
-    MDloops=max(1,int(args.MD*(0.5 + np.random.random())))
-    #MDloops=int(args.MD)
+    MDloops=max(1,int(args.mdsteps*(0.5 + np.random.random())))
+    #MDloops=int(args.mdsteps)
 
     # ITO MD LOOP
     if (args.method == "ito"):
@@ -651,10 +651,10 @@ for HMCIter in range(args.HMC):
     printPosBasin()
 
 
-    if args.WriteFiles is not 0:
-        if (HMCIter % max(1,int(int(args.HMC)/float(args.WriteFiles))) == 0) or (HMCIter == args.HMC):
+    if args.writefiles is not 0:
+        if (HMCIter % max(1,int(int(args.HMCsteps)/float(args.writefiles))) == 0) or (HMCIter == args.HMCsteps):
             writeCurPath("outPath"+str(HMCIter)+".dat")
-    elif (HMCIter == args.HMC):
+    elif (HMCIter == args.HMCsteps):
         writeCurPath("outPath"+str(HMCIter)+".dat")
 
     sys.stdout.flush()
