@@ -12,36 +12,31 @@ The algorithm is implimented for the following methods:
 ## Running the simulation
 
 `onedimHMC.py` is the main executable used to run the simulation.
-
 Help using this program can be found by running `./onedimHMC.py -h`.
-There are 2 required arguments:
 
-1. *method*: integration method (ito, finite)
-2. *HMC*: number of HMC loops to run
+There are 2 required arguments:
+1. **method**: integration method (ito, finite)
+2. **HMC**: number of HMC loops to run
 
 There are many optional arguments which may be changed as well, depending on the run to be performed, including
 
 | argument | description |
 | -------- | ----------- |
-| -p       | Potential def'n, found in `potential_defns` directory. See more *TODO* here. | 
-| -i       | Input (starting) path. |
-| -T       | Configurational temperature. |
+| --potential    | Potential def'n, found in `potential_defns` directory. See more **TODO** here. | 
+| --inpath  | Input (starting) path. |
+| --temp    | Configurational temperature. |
 | --dt     | Time step along the path. |
 | --dtau   | Time step between paths. |
-| --Num    | Number of positions along the path. |
-| --MD     | Number of molecular dynamics steps to perform between each HMC step. |
-| --WriteFiles | Number of intermediate paths to write to `output_paths` directory.|
-| --RNGseed | Seed (integer) for the random number generator. Default uses sysrandom. |
-| --debug | Optional debugging file. defaults to off. See more *TODO* here. |
-
+| --pathlen    | Number of positions along the path. |
+| --mdsteps     | Number of molecular dynamics steps to perform between each HMC step. |
+| --writefiles | Number of intermediate paths to write to `output_paths` directory.|
+| --seed | Seed (integer) for the random number generator. Default uses sysrandom. |
+| --debug | Optional debugging file. defaults to off. See more **TODO** here. |
 
 ## Compiling the C library
 
 This code uses python's ctypes to exploit the speed of a compiled C library.
 Before running this code, the C library must be compiled using the `make` command.
-
-## Running the simulation
-
 
 ### Adding a new potential
 

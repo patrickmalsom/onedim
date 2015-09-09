@@ -78,29 +78,29 @@ parser = argparse.ArgumentParser(
 # Required arguments
 parser.add_argument('method', type=str,
     help='HMC method to use;     options: ito -or- finite')
-parser.add_argument('HMC', type=int, default=2, 
+parser.add_argument('HMCsteps', type=int, default=2, 
     help='HMC loops (SDE+MD+MC)')
 
 # Optional arguments
 parser.add_argument('--finiteMethod', type=str,default='midpt',
     help='finite integrator to use;       default=midpt;   EX:{midpt,leapfrog}')
-parser.add_argument('-p', '--potential', type=str, default='fatter_skinny',
+parser.add_argument('--potential', type=str, default='fatter_skinny',
     help='Potential to use;   Found in potential_defns dir')
-parser.add_argument('-i','--infile', type=str, default='input_paths/fatterSkinny-T0p25-dt0p005-Nb30k-healed.dat', 
+parser.add_argument('--inpath', type=str, default='input_paths/fatterSkinny-T0p25-dt0p005-Nb30k-healed.dat', 
     help='input path positions')
-parser.add_argument('-T','--temperature', type=float, default=0.25, 
+parser.add_argument('--temp', type=float, default=0.25, 
     help='configurational temperature')
 parser.add_argument('--dt', type=float, default=0.005, 
     help='time step along the path')
 parser.add_argument('--dtau', type=float, default=10**(-6), 
     help='time step between paths')
-parser.add_argument('--Num', type=int, default=30001, 
+parser.add_argument('--pathlen', type=int, default=30001, 
     help='path length (num beads)')
-parser.add_argument('--MD', type=int, default=150, 
+parser.add_argument('--mdsteps', type=int, default=150, 
     help='MD steps per full HMC')
-parser.add_argument('--WriteFiles', type=int, default=0, 
+parser.add_argument('--writefiles', type=int, default=0, 
     help='Number of files to write')
-parser.add_argument('--RNGseed', type=int, 
+parser.add_argument('--seed', type=int, 
     help='random number seed; default uses SysRandom')
 parser.add_argument('--debug', type=str, default='False',
     help='debug: save struct to file;     enter name of debug file to turn on')
