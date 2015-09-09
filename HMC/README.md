@@ -61,10 +61,11 @@ These optional arguments default to sane settings for the [Narrow-Broad potentia
 
 ### Example run
 
-Run the program with the `--potential` flag corresponding to the name of the file in the `potential_defns` directory
+Running the simulation is performed using the python executable.
+Lets try this out with the continuous-time integration method (*ito*) and a single HMC loop by running:
 
 ```
-./onedimHMC.py --method ito --potential fatter_skinny -i input_paths/fatterSkinny-T0p25-dt0p005-Nb30k-healed.dat -T 0.25 --deltat 0.005 --deltatau 0.0000001 --Num 30001 --HMC 10 --MD 1000
+./onedimHMC.py ito 1
 ```
 
 ## Creating a new potential

@@ -92,7 +92,7 @@ parser.add_argument('--temp', type=float, default=0.25,
     help='configurational temperature')
 parser.add_argument('--dt', type=float, default=0.005, 
     help='time step along the path')
-parser.add_argument('--dtau', type=float, default=10**(-6), 
+parser.add_argument('--dtau', type=float, default=10**(-7), 
     help='time step between paths')
 parser.add_argument('--pathlen', type=int, default=30001, 
     help='path length (num beads)')
