@@ -75,24 +75,27 @@ parser = argparse.ArgumentParser(
              description='Ito HMC algorithm (finite time step) for 1D external potential',
              formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument('--method', type=str,
+# Required arguments
+parser.add_argument('method', type=str,
     help='HMC method to use;     options: ito -or- finite')
+parser.add_argument('HMC', type=int, default=2, 
+    help='HMC loops (SDE+MD+MC)')
+
+# Optional arguments
 parser.add_argument('--finiteMethod', type=str,default='midpt',
     help='finite integrator to use;       default=midpt;   EX:{midpt,leapfrog}')
-parser.add_argument('--potential', type=str, default='fatter_skinny',
+parser.add_argument('-p', '--potential', type=str, default='fatter_skinny',
     help='Potential to use;   Found in potential_defns dir')
 parser.add_argument('-i','--infile', type=str, default='input_paths/fatterSkinny-T0p25-dt0p005-Nb30k-healed.dat', 
     help='input path positions')
 parser.add_argument('-T','--temperature', type=float, default=0.25, 
     help='configurational temperature')
-parser.add_argument('--deltat', type=float, default=0.005, 
+parser.add_argument('--dt', type=float, default=0.005, 
     help='time step along the path')
-parser.add_argument('--deltatau', type=float, default=10**(-6), 
+parser.add_argument('--dtau', type=float, default=10**(-6), 
     help='time step between paths')
 parser.add_argument('--Num', type=int, default=30001, 
     help='path length (num beads)')
-parser.add_argument('--HMC', type=int, default=2, 
-    help='HMC loops (SDE+MD+MC)')
 parser.add_argument('--MD', type=int, default=150, 
     help='MD steps per full HMC')
 parser.add_argument('--WriteFiles', type=int, default=0, 
@@ -105,7 +108,7 @@ parser.add_argument('--debugstruct', type=str, default='False',
 #sys.argv includes a list of elements starting with the program
 if len(sys.argv) < 2:
     parser.print_usage()
-    sys.exit(1)
+    sys.exit(0)
 
 args = parser.parse_args()
 
