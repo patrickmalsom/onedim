@@ -23,16 +23,16 @@ There are many optional arguments which may be changed as well, depending on the
 
 | argument | description |
 | -------- | ----------- |
-| -p       | Potential definition. found in `potential_defns` directory. Any C files in this direcroty will be compiled when running `make`. See more TODO here. | 
-| -i       | Input (starting) path |
-| -T       | Configurational temperature |
-| --dt     | Time step along the path |
-| --dtau   | Time step between paths |
-| --Num    | Number of positions along the path |
-| --MD     | number of molecular dynamics steps to perform between each HMC step |
-| --WriteFiles | number of intermediate paths to write to file. Stored in `output_paths` directory.|
-| --RNGseed | Seed (integer) for the random number generator. Default uses sysrandom to get a random seed. |
-| --debugstruct | optional debugging file. defaults to off. See more TODO here. |
+| -p       | Potential def'n, found in `potential_defns` directory. See more *TODO* here. | 
+| -i       | Input (starting) path. |
+| -T       | Configurational temperature. |
+| --dt     | Time step along the path. |
+| --dtau   | Time step between paths. |
+| --Num    | Number of positions along the path. |
+| --MD     | Number of molecular dynamics steps to perform between each HMC step. |
+| --WriteFiles | Number of intermediate paths to write to `output_paths` directory.|
+| --RNGseed | Seed (integer) for the random number generator. Default uses sysrandom. |
+| --debug | Optional debugging file. defaults to off. See more *TODO* here. |
 
 
 ## Compiling the C library

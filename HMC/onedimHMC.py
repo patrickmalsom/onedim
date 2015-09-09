@@ -102,7 +102,7 @@ parser.add_argument('--WriteFiles', type=int, default=0,
     help='Number of files to write')
 parser.add_argument('--RNGseed', type=int, 
     help='random number seed; default uses SysRandom')
-parser.add_argument('--debugstruct', type=str, default='False',
+parser.add_argument('--debug', type=str, default='False',
     help='debug: save struct to file;     enter name of debug file to turn on')
 
 #sys.argv includes a list of elements starting with the program
@@ -661,8 +661,8 @@ for HMCIter in range(args.HMC):
 
 
 # struct debugging
-if args.debugstruct != '0':
-    saveDebugFinite(args.debugstruct,pathOld,pathCur,pathNew,params)
+if args.debug != '0':
+    saveDebugFinite(args.debug,pathOld,pathCur,pathNew,params)
 
 ## print the final path to file
 #for i in np.arange(0,len(inPath),1):
