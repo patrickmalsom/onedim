@@ -102,7 +102,7 @@ parser.add_argument('--writefiles', type=int, default=0,
     help='Number of files to write')
 parser.add_argument('--seed', type=int, 
     help='random number seed; default uses SysRandom')
-parser.add_argument('--debug', type=str, default='False',
+parser.add_argument('--debug', type=str, default='0',
     help='debug: save struct to file;     enter name of debug file to turn on')
 
 #sys.argv includes a list of elements starting with the program
