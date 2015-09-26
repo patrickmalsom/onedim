@@ -77,13 +77,13 @@ parser = argparse.ArgumentParser(
 
 # Required arguments
 parser.add_argument('method', type=str,
-    help='HMC method to use;     options: ito -or- finite')
+    help='HMC method to use;     options:{ito,midpt,leapfrog}')
 parser.add_argument('HMCsteps', type=int, default=2, 
     help='HMC loops (SDE+MD+MC)')
 
 # Optional arguments
-parser.add_argument('--finiteMethod', type=str,default='midpt',
-    help='finite integrator to use;       default=midpt;   EX:{midpt,leapfrog}')
+#parser.add_argument('--finiteMethod', type=str,default='midpt',
+#    help='finite integrator to use;       default=midpt;   EX:{midpt,leapfrog}')
 parser.add_argument('--potential', type=str, default='fatter_skinny',
     help='Potential to use;   Found in potential_defns dir')
 parser.add_argument('--inpath', type=str, default='input_paths/fatterSkinny-T0p25-dt0p005-Nb30k-healed.dat', 
@@ -189,11 +189,11 @@ NumB=args.pathlen# number of 'beads' (total positions in path, path length)
 # finite method initialization
 #   this will store the integer associated with the method to the 
 #   parameters struct for use in the C code (deltae, Phi, dg)
-availableFiniteMethods={'midpt':0,'leapfrog':1}
-if args.finiteMethod in availableFiniteMethods:
-    finiteMethod=availableFiniteMethods[args.finiteMethod]
+availableMethods={'ito':0,'midpt':1,'leapfrog':2}
+if args.method in availableMethods:
+    methodInt=availableMethods[args.method]
 else:
-    print "finite method does not exist! exiting..."
+    print "Method does not exist! Choices are {ito,midpt,leapfrog}. Exiting..."
     sys.exit(1)
 
 invdt=1/deltat # reciprocal of time step
@@ -216,7 +216,7 @@ class Parameters(ctypes.Structure):
               ('noisePref', DOUBLE),
               ('r', DOUBLE),
               ('NumB', INT),
-              ('finiteMethod', INT)
+              ('method', INT)
              ]
 # define the array of averages that is to be passed to the C routine
 paramType=Parameters
@@ -382,8 +382,8 @@ def printParams(path,params):
     print 'Path Space HMC algorithm for 1D external potential'
     print '--------------------------------------------------'
     print '  method : %s' % args.method
-    if args.method == 'finite':
-        print '  finiteMethod : %s' % args.finiteMethod
+    #if args.method == 'finite':
+    #    print '  finiteMethod : %s' % args.finiteMethod
     print '  input file : %s' % args.inpath
     print '  md5 hash   : '+hashlib.md5(open(args.inpath).read()).hexdigest()
     print '  quadvar eps: %f' % ( quadraticVariation(path,params) )
@@ -413,7 +413,8 @@ def initializeParams(params):
     params.noisePref=noisePref
     params.r=r
     params.NumB=NumB
-    params.finiteMethod=finiteMethod
+    params.method=methodInt
+    #params.finiteMethod=finiteMethod
 
 def setRNGseed():
   # if there is no rng set on cmd line, generate a random one
@@ -580,7 +581,7 @@ for HMCIter in range(args.HMCsteps):
         Echange+=c_calcEChangeIto(pathCur,pathNew,params)
 
     # Finite SPDE LOOP
-    elif (args.method == "finite"):
+    elif (args.method in availableMethods and args.method != "ito"):
         # calculate the current state 
         FillCurFinite()
 
@@ -624,7 +625,7 @@ for HMCIter in range(args.HMCsteps):
             #printDebugIto(pathOld,pathCur,pathNew,params)
 
     # ITO SPDE LOOP
-    elif (args.method == "finite"):
+    elif (args.method in availableMethods and args.method != "ito"):
         for MDIter in range( MDloops ):
             # calculate the new postions in pathNew
             calcMDFinitePos(pathOld,pathCur,pathNew,params)

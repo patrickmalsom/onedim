@@ -332,7 +332,7 @@ void calcDeltae(averages* path, parameters params){
   int i;
 
   //midpt (finite method -> 0)
-  if(params.finiteMethod == 0){
+  if(params.method == 1){
     #pragma omp parallel for
     for(i=0;i<params.NumB-1;i++){
       path[i].deltae = path[i+1].U - path[i].U + path[i].Fbar*(path[i+1].pos -path[i].pos);
@@ -340,7 +340,7 @@ void calcDeltae(averages* path, parameters params){
   }
 
   //leapfrog (finite method -> 1)
-  else if(params.finiteMethod == 1){
+  else if(params.method == 2){
     #pragma omp parallel for
     for(i=0;i<params.NumB-1;i++){
       path[i].deltae = path[i+1].U - path[i].U + (path[i+1].pos-path[i].pos) * (path[i+1].F+path[i].F)*0.5 + params.deltat*0.25*(path[i+1].F*path[i+1].F - path[i].F*path[i].F);
@@ -487,8 +487,8 @@ void calcdg(averages* path, parameters params){
   // intial positions/force/Hessian must be filled
   int i;
 
-  //midpt (finite method -> 0)
-  if(params.finiteMethod == 0){
+  //midpt (method -> 1)
+  if(params.method == 1){
     #pragma omp parallel for
     for(i=1;i<params.NumB-1;i++){
       path[i].dg  = 0.5 *(path[i].Fbar *path[i].Fpbar + params.eps * path[i].Fppbar /(1.0 - 0.5* params.deltat * path[i].Fpbar));
@@ -498,8 +498,8 @@ void calcdg(averages* path, parameters params){
     }
   }
 
-  //leapfrog (finite method -> 1)
-  else if(params.finiteMethod == 1){
+  //leapfrog (method -> 2)
+  else if(params.method == 2){
     #pragma omp parallel for
     for(i=1;i<params.NumB-1;i++){
       //direct calculation
@@ -519,16 +519,16 @@ void calcdg(averages* path, parameters params){
 void calcPhi(averages* path, parameters params){
   int i;
 
-  //midpt (finite method -> 0)
-  if(params.finiteMethod == 0){
+  //midpt (method -> 1)
+  if(params.method == 1){
     #pragma omp parallel for
     for(i=0;i<params.NumB-1;i++){
       path[i].Phi = 0.5*path[i].Fbar*path[i].Fbar - 2.0 * params.eps * params.invdt * log(1.0 - params.deltat*0.5*path[i].Fpbar) - path[i].deltae*params.invdt;
     }
   }
 
-  //leapfrog (finite method -> 1)
-  else if(params.finiteMethod == 1){
+  //leapfrog (method -> 2)
+  else if(params.method == 2){
     #pragma omp parallel for
     for(i=0;i<params.NumB-1;i++){
       //using deltae[i]
