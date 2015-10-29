@@ -71,9 +71,10 @@ import os
 import argparse
 
 parser = argparse.ArgumentParser(
-             # argparse options
-             description='Ito HMC algorithm (finite time step) for 1D external potential',
-             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        # argparse options
+        description='Path-Space HMC algorithm for 1D potential',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
 
 # Required arguments
 parser.add_argument('method', type=str,
@@ -82,8 +83,6 @@ parser.add_argument('HMCsteps', type=int, default=2,
     help='HMC loops (SDE+MD+MC)')
 
 # Optional arguments
-#parser.add_argument('--finiteMethod', type=str,default='midpt',
-#    help='finite integrator to use;       default=midpt;   EX:{midpt,leapfrog}')
 parser.add_argument('--potential', type=str, default='fatter_skinny',
     help='Potential to use;   Found in potential_defns dir')
 parser.add_argument('--inpath', type=str, default='input_paths/fatterSkinny-T0p25-dt0p005-Nb30k-healed.dat', 
@@ -96,7 +95,7 @@ parser.add_argument('--dtau', type=float, default=10**(-7),
     help='time step between paths')
 parser.add_argument('--pathlen', type=int, default=30001, 
     help='path length (num beads)')
-parser.add_argument('--mdsteps', type=int, default=150, 
+parser.add_argument('--mdsteps', type=int, default=500, 
     help='MD steps per full HMC')
 parser.add_argument('--writefiles', type=int, default=0, 
     help='Number of files to write')
@@ -382,8 +381,6 @@ def printParams(path,params):
     print 'Path Space HMC algorithm for 1D external potential'
     print '--------------------------------------------------'
     print '  method : %s' % args.method
-    #if args.method == 'finite':
-    #    print '  finiteMethod : %s' % args.finiteMethod
     print '  input file : %s' % args.inpath
     print '  md5 hash   : '+hashlib.md5(open(args.inpath).read()).hexdigest()
     print '  quadvar eps: %f' % ( quadraticVariation(path,params) )
@@ -414,7 +411,6 @@ def initializeParams(params):
     params.r=r
     params.NumB=NumB
     params.method=methodInt
-    #params.finiteMethod=finiteMethod
 
 def setRNGseed():
   # if there is no rng set on cmd line, generate a random one
@@ -581,7 +577,7 @@ for HMCIter in range(args.HMCsteps):
         Echange+=c_calcEChangeIto(pathCur,pathNew,params)
 
     # Finite SPDE LOOP
-    elif (args.method in availableMethods and args.method != "ito"):
+    else:
         # calculate the current state 
         FillCurFinite()
 
@@ -594,8 +590,6 @@ for HMCIter in range(args.HMCsteps):
         # reset the energy change accumulator at the beginning of the SPDE step
         Echange=0.0
         Echange+=c_EChangeFinite(pathCur,pathNew,params)
-    else:
-        print "BAD METHOD!"
 
     rotatePaths()
     printState("SPDE")
@@ -624,8 +618,8 @@ for HMCIter in range(args.HMCsteps):
             printStateMD(MDloops)
             #printDebugIto(pathOld,pathCur,pathNew,params)
 
-    # ITO SPDE LOOP
-    elif (args.method in availableMethods and args.method != "ito"):
+    # Finite MD LOOP
+    else:
         for MDIter in range( MDloops ):
             # calculate the new postions in pathNew
             calcMDFinitePos(pathOld,pathCur,pathNew,params)
@@ -641,8 +635,6 @@ for HMCIter in range(args.HMCsteps):
             # print some of the MD states (~10 total)
             printStateMD(MDloops)
             #printDebugFinite(pathOld,pathCur,pathNew,params)
-    else:
-        print "BAD METHOD!"
 
     # print the run state for the final MD step
     printState("MDloop "+str(MDloops-1))
@@ -660,13 +652,6 @@ for HMCIter in range(args.HMCsteps):
 
     sys.stdout.flush()
 
-
 # struct debugging
 if args.debug != '0':
     saveDebugFinite(args.debug,pathOld,pathCur,pathNew,params)
-
-## print the final path to file
-#for i in np.arange(0,len(inPath),1):
-#    outPath[i]=pathCur[i].pos
-#np.savetxt("output_paths/"+args.outfile,outPath)
-

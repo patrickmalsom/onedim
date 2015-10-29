@@ -327,7 +327,6 @@ void generateBB(averages* path, parameters params){
 
 // ==================================================================================
 void calcDeltae(averages* path, parameters params){
-//TODO: changes for leapfrog: eqn 7.61 (midpt 7.32)
   // find the change in energy for each point along the path
   int i;
 
@@ -481,7 +480,6 @@ void GaussElim(averages* path0, averages* path1, parameters params){
 // ==================================================================================
 // calcdg: Calculate the sum of the energy error between at each time interval
 // (for a specific itegration method) for the entire path
-//TODO: changes for leapfrog: eqn 7.63 and 7.64 (midpoint 7.34 and 7.35)
 void calcdg(averages* path, parameters params){
   // calculate dG/dx for the structure
   // intial positions/force/Hessian must be filled
@@ -514,7 +512,6 @@ void calcdg(averages* path, parameters params){
 }
 
 // ==================================================================================
-//TODO: changes for leapfrog: eqn 7.62  (midpoint 7.33)
 //defined from eqn 7.27 and 7.28 as well
 void calcPhi(averages* path, parameters params){
   int i;
