@@ -39,6 +39,7 @@ There are 2 required arguments:
     - **ito**: Ito/Girsanov form of HMC (continuous time limit)
     - **midpt**: Finite time HMC using the mid point integrator
     - **leapfrog**: Finite time HMC using the LeapFrog (velocity Verlet) integrator
+    - **simpsons**: Finite time HMC using the LeapFrog (velocity Verlet) integrator
 2. **HMC**: (integer) number of HMC loops to run
 
 ### Optional command line arguments

@@ -78,7 +78,7 @@ parser = argparse.ArgumentParser(
 
 # Required arguments
 parser.add_argument('method', type=str,
-    help='HMC method to use;     options:{ito,midpt,leapfrog}')
+    help='HMC method to use;     options:{ito,midpt,leapfrog,simpsons}')
 parser.add_argument('HMCsteps', type=int, default=2, 
     help='HMC loops (SDE+MD+MC)')
 
@@ -188,11 +188,11 @@ NumB=args.pathlen# number of 'beads' (total positions in path, path length)
 # finite method initialization
 #   this will store the integer associated with the method to the 
 #   parameters struct for use in the C code (deltae, Phi, dg)
-availableMethods={'ito':0,'midpt':1,'leapfrog':2}
+availableMethods={'ito':0,'midpt':1,'leapfrog':2,'simpsons':3}
 if args.method in availableMethods:
     methodInt=availableMethods[args.method]
 else:
-    print "Method does not exist! Choices are {ito,midpt,leapfrog}. Exiting..."
+    print "Method does not exist! Choices are {ito,midpt,leapfrog,simpsons}. Exiting..."
     sys.exit(1)
 
 invdt=1/deltat # reciprocal of time step
@@ -616,7 +616,8 @@ for HMCIter in range(args.HMCsteps):
 
             # print some of the MD states (~10 total)
             printStateMD(MDloops)
-            #printDebugIto(pathOld,pathCur,pathNew,params)
+            if args.debug != '0':
+                printDebugIto(pathOld,pathCur,pathNew,params)
 
     # Finite MD LOOP
     else:
@@ -634,7 +635,8 @@ for HMCIter in range(args.HMCsteps):
 
             # print some of the MD states (~10 total)
             printStateMD(MDloops)
-            #printDebugFinite(pathOld,pathCur,pathNew,params)
+            if args.debug != '0':
+                printDebugFinite(pathOld,pathCur,pathNew,params)
 
     # print the run state for the final MD step
     printState("MDloop "+str(MDloops-1))

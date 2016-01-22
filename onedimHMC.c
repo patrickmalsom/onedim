@@ -330,7 +330,7 @@ void calcDeltae(averages* path, parameters params){
   // find the change in energy for each point along the path
   int i;
 
-  //midpt (finite method -> 0)
+  //midpt (finite method -> 1)
   if(params.method == 1){
     #pragma omp parallel for
     for(i=0;i<params.NumB-1;i++){
@@ -338,11 +338,19 @@ void calcDeltae(averages* path, parameters params){
     }
   }
 
-  //leapfrog (finite method -> 1)
+  //leapfrog (finite method -> 2)
   else if(params.method == 2){
     #pragma omp parallel for
     for(i=0;i<params.NumB-1;i++){
       path[i].deltae = path[i+1].U - path[i].U + (path[i+1].pos-path[i].pos) * (path[i+1].F+path[i].F)*0.5 + params.deltat*0.25*(path[i+1].F*path[i+1].F - path[i].F*path[i].F);
+    }
+  }
+
+  //simpsons (finite method -> 3)
+  if(params.method == 3){
+    #pragma omp parallel for
+    for(i=0;i<params.NumB-1;i++){
+      path[i].deltae = path[i+1].U - path[i].U + (path[i].F+4.0*path[i].Fbar+path[i+1].F)*(path[i+1].pos -path[i].pos)*0.1666666666666666666;
     }
   }
 }
@@ -484,6 +492,12 @@ void calcdg(averages* path, parameters params){
   // calculate dG/dx for the structure
   // intial positions/force/Hessian must be filled
   int i;
+  double sixth=0.1666666666666666666;
+  double third=0.3333333333333333333;
+  double Jn; //J_n for simpsons rule
+  double Jnm1; // J_{n-1} for simpsons rule
+  double Fwn; // weighted force F_w(x_n)
+  double Fwnm1; // weighted force F_w(x_{n-1})
 
   //midpt (method -> 1)
   if(params.method == 1){
@@ -509,12 +523,32 @@ void calcdg(averages* path, parameters params){
       //path[i].dg -= params.invdt * (-path[i].F + 0.5*(path[i].F + path[i-1].F) + 0.5*(path[i].pos - path[i-1].pos)*path[i].Fp);
     }
   }
+
+  //simpsons (finite method -> 3)
+  if(params.method == 3){
+    #pragma omp parallel for
+    for(i=1;i<params.NumB-1;i++){
+
+      // calculate the Jacobian terms
+      Jn = 1.0 - params.deltat*sixth*(path[i+1].Fp + 2.0*path[i].Fpbar);
+      Jnm1 = 1.0 - params.deltat*sixth*(path[i].Fp + 2.0*path[i-1].Fpbar);
+      Fwn = sixth*(path[i].F + 4.0*path[i].Fbar + path[i+1].F);
+      Fwnm1 = sixth*(path[i-1].F + 4.0*path[i-1].Fbar + path[i].F);
+      
+      path[i].dg = sixth * Fwn *(path[i].Fp+2.0*path[i].Fpbar) + third*params.eps*path[i].Fppbar/Jn;
+      path[i].dg+= sixth * Fwnm1 *(path[i].Fp+2.0*path[i-1].Fpbar) + third*params.eps*(path[i].Fpp + path[i-1].Fppbar)/Jnm1;
+      path[i].dg-= params.invdt * (path[i].F + Fwn + sixth * (path[i+1].pos - path[i].pos) * (path[i].Fp + 2.0 * path[i].Fpbar));
+      path[i].dg-= params.invdt * (-path[i].F + Fwnm1 + sixth * (path[i].pos - path[i-1].pos) * (path[i].Fp + 2.0 * path[i-1].Fpbar));
+    }
+  }
 }
 
 // ==================================================================================
 //defined from eqn 7.27 and 7.28 as well
 void calcPhi(averages* path, parameters params){
   int i;
+  double Fw;
+  double sixth=0.1666666666666666666;
 
   //midpt (method -> 1)
   if(params.method == 1){
@@ -532,6 +566,15 @@ void calcPhi(averages* path, parameters params){
       //path[i].Phi = 0.25*path[i+1].F*path[i+1].F + 0.25*path[i].F*path[i].F + 0.5*(path[i+1].pos - path[i].pos)*params.invdt * (path[i+1].F - path[i].F) - path[i].deltae*params.invdt;
       //direct calculation
       path[i].Phi = 0.5*path[i].F*path[i].F - path[i].F*(path[i+1].pos - path[i].pos)*params.invdt;
+    }
+  }
+
+  //simpsons (finite method -> 3)
+  if(params.method == 3){
+    #pragma omp parallel for
+    for(i=0;i<params.NumB-1;i++){
+      Fw=sixth*(path[i].F+4.0*path[i].Fbar+path[i+1].F);
+      path[i].Phi = 0.5*Fw*Fw - 2.0 * params.eps * params.invdt * log(1.0 - params.deltat*sixth*(path[i+1].Fp + 2.0*path[i].Fpbar));
     }
   }
 }
