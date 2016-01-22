@@ -8,3 +8,5 @@ log
 *.png
 *.pdf
 *.mp4
+*.so
+*.out
