@@ -498,6 +498,8 @@ void calcdg(averages* path, parameters params){
   double Jnm1; // J_{n-1} for simpsons rule
   double Fwn; // weighted force F_w(x_n)
   double Fwnm1; // weighted force F_w(x_{n-1})
+  double dFwn; // deriv of weighted force F_w(x_n)
+  double dFwnm1; // deriv of weighted force F_w(x_{n-1})
 
   //midpt (method -> 1)
   if(params.method == 1){
@@ -534,11 +536,14 @@ void calcdg(averages* path, parameters params){
       Jnm1 = 1.0 - params.deltat*sixth*(path[i].Fp + 2.0*path[i-1].Fpbar);
       Fwn = sixth*(path[i].F + 4.0*path[i].Fbar + path[i+1].F);
       Fwnm1 = sixth*(path[i-1].F + 4.0*path[i-1].Fbar + path[i].F);
-      
-      path[i].dg = sixth * Fwn *(path[i].Fp+2.0*path[i].Fpbar) + third*params.eps*path[i].Fppbar/Jn;
-      path[i].dg+= sixth * Fwnm1 *(path[i].Fp+2.0*path[i-1].Fpbar) + third*params.eps*(path[i].Fpp + path[i-1].Fppbar)/Jnm1;
-      path[i].dg-= params.invdt * (path[i].F + Fwn + sixth * (path[i+1].pos - path[i].pos) * (path[i].Fp + 2.0 * path[i].Fpbar));
-      path[i].dg-= params.invdt * (-path[i].F + Fwnm1 + sixth * (path[i].pos - path[i-1].pos) * (path[i].Fp + 2.0 * path[i-1].Fpbar));
+      dFwn = sixth*(path[i].Fp+2.0*path[i].Fpbar);
+      dFwnm1 = sixth*(path[i].Fp+2.0*path[i-1].Fpbar);
+
+      path[i].dg = dFwn*(Fwn- params.invdt*(path[i+1].pos - path[i].pos)) + third*params.eps*path[i].Fppbar/Jn;
+      path[i].dg+= dFwnm1*(Fwnm1- params.invdt*(path[i].pos - path[i-1].pos)) +  + third*params.eps*(path[i].Fpp + path[i-1].Fppbar)/Jnm1;
+      path[i].dg +=params.invdt*( Fwn- Fwnm1);
+      //path[i].dg-= params.invdt * (path[i].F + Fwn + sixth * (path[i+1].pos - path[i].pos) * (path[i].Fp + 2.0 * path[i].Fpbar));
+      //path[i].dg-= params.invdt * (-path[i].F + Fwnm1 + sixth * (path[i].pos - path[i-1].pos) * (path[i].Fp + 2.0 * path[i-1].Fpbar));
     }
   }
 }
@@ -574,7 +579,9 @@ void calcPhi(averages* path, parameters params){
     #pragma omp parallel for
     for(i=0;i<params.NumB-1;i++){
       Fw=sixth*(path[i].F+4.0*path[i].Fbar+path[i+1].F);
-      path[i].Phi = 0.5*Fw*Fw - 2.0 * params.eps * params.invdt * log(1.0 - params.deltat*sixth*(path[i+1].Fp + 2.0*path[i].Fpbar));
+      //path[i].Phi = 0.5*Fw*Fw - 2.0 * params.eps * params.invdt * log(1.0 - params.deltat*sixth*(path[i+1].Fp + 2.0*path[i].Fpbar));
+      path[i].Phi = Fw*(0.5* Fw - (path[i+1].pos - path[i].pos)*params.invdt) - 2.0 * params.eps * params.invdt * log(1.0 - params.deltat*sixth*(path[i+1].Fp + 2.0*path[i].Fpbar));
+
     }
   }
 }
