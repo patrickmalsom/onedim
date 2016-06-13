@@ -7,6 +7,24 @@
 #define PREF 0.05
 #define DT 0.005
 
+// Parameters Struct 
+// Stores many useful constants that are defined in the python code
+// ( see python code for comments)
+typedef struct _parameters
+{
+  double dt;
+  double eps;
+  double noisePref;
+  double xstart;
+  int num;
+  int method;
+} parameters;
+
+typedef struct _traj_array
+{
+  double grn;
+} traj_array;
+
 /* =====================================================================
  * Potential Definitions: Fatter-Skinnier Potential: (8 - 5*x)**8 * (2 + 5*x)**2 / 2**26
  * -----------------------------
@@ -61,6 +79,11 @@ double simpson_Force(double x1,double x0){
   return (Force(x1) + 4.0*Force(0.5*(x1+x0)) + Force(x0))*0.16666666666666666666;
 }
 
+double new_leapfrog(double x0,double random_gauss){
+  // return new step 
+  return x0 + DT * Force(x0) + PREF * random_gauss;
+}
+
 double new_midpt(double x0,double random_gauss){
   // save the initial point
   double xsave = x0;
@@ -89,7 +112,13 @@ double new_simson(double x0,double random_gauss){
   return xguess;
 }
 
-//void create_trajectory(double xstart, double gaussian_array[]){
+double create_trajectory(traj_array* traj, parameters params){
   // Create the whole trajectory and keep track of B(s)
+  int i;
+  double temp=0;
+  for(i=0;i<params.num;i++){
+    temp += traj[i].grn;
+  }
+  return temp;
+}
 
-  
