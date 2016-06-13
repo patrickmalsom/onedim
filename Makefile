@@ -16,6 +16,7 @@ UNAME := $(shell uname)
 # Linux build flags (with OpenMP enabled)
 ifeq ($(UNAME), Linux) 
 CFLAGS=-Wall -Warray-bounds -fPIC -fopenmp -march=native -O2 -g
+#CFLAGS=-Wall -Warray-bounds -fPIC -march=native -O2 -g
 LFLAGS=-fopenmp -lm
 INCLUDEDIRS= -I/usr/include
 LIBDIRS= -L/usr/lib64
