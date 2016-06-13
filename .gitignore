@@ -1,0 +1,12 @@
+wiki
+log
+
+*Cython.c
+*.pyc
+*.mov
+*.jpg
+*.png
+*.pdf
+*.mp4
+*.so
+*.out
