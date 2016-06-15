@@ -1,0 +1,432 @@
+universe = vanilla
+
+executable = forwardInt-Stats.sh
+
+output = log/forwardIntStats-$(Cluster)-$(Process).out
+error = log/forwardIntStats-$(Cluster)-$(Process).err
+log = log/forwardIntStats-$(Cluster)-$(Process).log
+
++ProjectName = "PathSpaceHMC"
+
+Requirements = (OSGVO_OS_STRING == "RHEL 6" && HAS_MODULES == true)
+
+runTime=2000
+
+Arguments = LeapFrog  0.25  0.0001   $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 300
+
+Arguments = LeapFrog  0.25  0.00025  $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 100
+
+Arguments = LeapFrog  0.25  0.0005   $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 60
+
+Arguments = LeapFrog  0.25  0.00075  $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 60
+
+Arguments = LeapFrog  0.25  0.001    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 30
+
+Arguments = LeapFrog  0.25  0.002    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 30
+
+Arguments = LeapFrog  0.25  0.003    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 20
+
+Arguments = LeapFrog  0.25  0.004    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 10
+
+Arguments = LeapFrog  0.25  0.005    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 10
+
+Arguments = LeapFrog  0.25  0.006    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 8
+
+Arguments = LeapFrog  0.25  0.007    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 8
+
+Arguments = LeapFrog  0.25  0.008    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 8 
+
+Arguments = LeapFrog  0.25  0.009    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 5
+
+Arguments = LeapFrog  0.25  0.010    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 5
+
+Arguments = LeapFrog  0.25  0.011    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 5
+
+Arguments = LeapFrog  0.25  0.012    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = LeapFrog  0.25  0.013    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = LeapFrog  0.25  0.014    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = LeapFrog  0.25  0.015    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = LeapFrog  0.25  0.016    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = LeapFrog  0.25  0.017    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = LeapFrog  0.25  0.018    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = LeapFrog  0.25  0.019    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = LeapFrog  0.25  0.020    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = LeapFrog  0.25  0.021    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = LeapFrog  0.25  0.022    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = LeapFrog  0.25  0.023    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = LeapFrog  0.25  0.024    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 2
+
+Arguments = LeapFrog  0.25  0.025    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 2
+
+Arguments = LeapFrog  0.25  0.026    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 2
+
+Arguments = LeapFrog  0.25  0.027    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 2
+
+Arguments = LeapFrog  0.25  0.028    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 2
+
+Arguments = LeapFrog  0.25  0.029    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 2
+
+Arguments = LeapFrog  0.25  0.030    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 2
+
+
+
+
+
+
+Arguments = MidPt     0.25  0.0001   $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 500
+
+Arguments = MidPt     0.25  0.00025  $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 200
+
+Arguments = MidPt     0.25  0.0005   $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 100
+
+Arguments = MidPt     0.25  0.00075  $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 80
+
+Arguments = MidPt     0.25  0.001    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 50
+
+Arguments = MidPt     0.25  0.002    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 50
+
+Arguments = MidPt     0.25  0.003    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 30
+
+Arguments = MidPt     0.25  0.004    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 20
+
+Arguments = MidPt     0.25  0.005    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 15
+
+Arguments = MidPt     0.25  0.006    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 10
+
+Arguments = MidPt     0.25  0.007    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 10
+
+Arguments = MidPt     0.25  0.008    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 10
+
+Arguments = MidPt     0.25  0.009    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 10
+
+Arguments = MidPt     0.25  0.010    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 10
+
+Arguments = MidPt     0.25  0.011    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 10
+
+Arguments = MidPt     0.25  0.012    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 10
+
+Arguments = MidPt     0.25  0.013    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 7
+
+Arguments = MidPt     0.25  0.014    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 7
+
+Arguments = MidPt     0.25  0.015    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 7
+
+Arguments = MidPt     0.25  0.016    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 5
+
+Arguments = MidPt     0.25  0.017    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 5
+
+Arguments = MidPt     0.25  0.018    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 5
+
+Arguments = MidPt     0.25  0.019    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = MidPt     0.25  0.020    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = MidPt     0.25  0.021    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = MidPt     0.25  0.022    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = MidPt     0.25  0.023    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = MidPt     0.25  0.024    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 2
+
+Arguments = MidPt     0.25  0.025    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 2
+
+Arguments = MidPt     0.25  0.026    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 2
+
+Arguments = MidPt     0.25  0.027    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 2
+
+Arguments = MidPt     0.25  0.028    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 2
+
+Arguments = MidPt     0.25  0.029    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 2
+
+Arguments = MidPt     0.25  0.030    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 2
+
+
+
+
+
+
+Arguments = Simpson   0.25  0.0001   $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 800
+
+Arguments = Simpson   0.25  0.00025  $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 300
+
+Arguments = Simpson   0.25  0.0005   $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 200
+
+Arguments = Simpson   0.25  0.00075  $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 100
+
+Arguments = Simpson   0.25  0.001    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 80
+
+Arguments = Simpson   0.25  0.002    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 80
+
+Arguments = Simpson   0.25  0.003    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 50
+
+Arguments = Simpson   0.25  0.004    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 50
+
+Arguments = Simpson   0.25  0.005    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 30
+
+Arguments = Simpson   0.25  0.006    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 30
+
+Arguments = Simpson   0.25  0.007    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 20
+
+Arguments = Simpson   0.25  0.008    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 20
+
+Arguments = Simpson   0.25  0.009    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 20
+
+Arguments = Simpson   0.25  0.010    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 10
+
+Arguments = Simpson   0.25  0.011    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 10
+
+Arguments = Simpson   0.25  0.012    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 10
+
+Arguments = Simpson   0.25  0.013    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 10
+
+Arguments = Simpson   0.25  0.014    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 5
+
+Arguments = Simpson   0.25  0.015    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 5
+
+Arguments = Simpson   0.25  0.016    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 5
+
+Arguments = Simpson   0.25  0.017    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 5
+
+Arguments = Simpson   0.25  0.018    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 5
+
+Arguments = Simpson   0.25  0.019    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 5
+
+Arguments = Simpson   0.25  0.020    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 5
+
+Arguments = Simpson   0.25  0.021    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = Simpson   0.25  0.022    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = Simpson   0.25  0.023    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = Simpson   0.25  0.024    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = Simpson   0.25  0.025    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = Simpson   0.25  0.026    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = Simpson   0.25  0.027    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = Simpson   0.25  0.028    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = Simpson   0.25  0.029    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
+Arguments = Simpson   0.25  0.030    $(runTime)
+transfer_input_files = forwardInt-Stats.py
+queue 3
+
