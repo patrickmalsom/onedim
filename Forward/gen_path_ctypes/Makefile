@@ -7,9 +7,9 @@ LFLAGS=-lm -lgsl -lgslcblas
 INCLUDEDIRS= -I/usr/include
 LIBDIRS= -L/usr/lib64
 
-all: calc_move
+all: forward_B
 
-calc_move.o: calc_move.c ; $(CC) $(INCLUDEDIRS) $(CFLAGS) -c calc_move.c
-calc_move : calc_move.o; $(CC) $(LIBDIRS) $(LFLAGS) calc_move.o -o calc_move.out
+forward_B.o: forward_B.c ; $(CC) $(INCLUDEDIRS) $(CFLAGS) -c forward_B.c
+forward_B : forward_B.o; $(CC) $(LIBDIRS) $(LFLAGS) forward_B.o -o forward_B.out
 
-clean: ; rm calc_move.o calc_move.out
+clean: ; rm forward_B.o forward_B.out
