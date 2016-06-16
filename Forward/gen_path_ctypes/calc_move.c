@@ -2,9 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// Parameters Struct 
-// Stores many useful constants that are defined in the python code
-// ( see python code for comments)
+// NOTE: The structs MUST EXACTLY MATCH the class in the python routine
+// Stores many useful constants. initialized in the python code
 typedef struct _parameters
 {
   double dt;
@@ -12,13 +11,16 @@ typedef struct _parameters
   double noisePref;
   double xstart;
   int num;
-  int method;
+  int method; //0:leapfrog 1:midpt 2:simpson
+  int MHMC; //boolean for MHMC on:1 off:0
 } parameters;
 
+// Array struct for the trajectory
 typedef struct _traj_array
 {
   double grn;
   double pos;
+  double rand;
 } traj_array;
 
 /* =====================================================================
@@ -56,12 +58,12 @@ double simpson_Force(double x1,double x0){
   return (Force(x1) + 4.0*Force(0.5*(x1+x0)) + Force(x0))*0.16666666666666666666;
 }
 
-double new_leapfrog(double x0,double random_gauss, parameters params){
+double gen_leapfrog(double x0,double random_gauss, parameters params){
   // return new step 
   return x0 + params.dt * Force(x0) + params.noisePref * random_gauss;
 }
 
-double new_midpt(double x0,double random_gauss, parameters params){
+double gen_midpt(double x0,double random_gauss, parameters params){
   // save the initial point
   double xsave = x0;
   // guess the new step according to leap frog
@@ -75,7 +77,7 @@ double new_midpt(double x0,double random_gauss, parameters params){
   return xguess;
 }
 
-double new_simson(double x0,double random_gauss, parameters params){
+double gen_simpson(double x0,double random_gauss, parameters params){
   // save the initial point
   double xsave = x0;
   // guess the new step according to leap frog
@@ -89,31 +91,61 @@ double new_simson(double x0,double random_gauss, parameters params){
   return xguess;
 }
 
-void create_trajectory(traj_array* traj, parameters params){
+int create_trajectory(traj_array* traj, parameters params){
   // Create the whole trajectory and keep track of B(s)
   int i;
+  int MHMC_acc = 0;
+
+  double inv_eps=1.0/params.eps;
+
+  double MHMC_criteria;
+  double proposed_move;
+
   //save value of the broad well fraction
   traj[0].pos=params.xstart;
 
-  // leapfrog trajectory
-  if(params.method==0){
+  // leapfrog trajectory without MHMC
+  if(params.method==0 && params.MHMC==0){
     for(i=0;i<params.num-1;i++){
-      traj[i+1].pos = new_leapfrog(traj[i].pos,traj[i].grn,params);
+      traj[i+1].pos = gen_leapfrog(traj[i].pos,traj[i].grn,params);
     }
   }
 
-  // midpt trajectory
-  if(params.method==0){
+  //TODO THIS IS NOT CORRECT!
+  // leapfrog trajectory with MHMC
+  if(params.method==0 && params.MHMC==1){
+    // calculate 1/(2*eps) for use later
+
+
     for(i=0;i<params.num-1;i++){
-      traj[i+1].pos = new_midpt(traj[i].pos,traj[i].grn,params);
+      // generate the proposal move
+      proposed_move = gen_leapfrog(traj[i].pos,traj[i].grn,params);
+
+      // perform the metropolis hastings test
+      MHMC_criteria = exp( -( Pot(proposed_move) - Pot(traj[i].pos) )*inv_eps);
+      if(MHMC_criteria > traj[i].rand){
+        traj[i+1].pos=proposed_move;
+        MHMC_acc+=1;
+      }
+      else{
+        traj[i+1].pos=traj[i].pos;
+      }
     }
   }
 
-  // leapfrog trajectory
-  if(params.method==0){
+  // midpt trajectory without MHMC
+  if(params.method==1 && params.MHMC==0){
     for(i=0;i<params.num-1;i++){
-      traj[i+1].pos = new_simpson(traj[i].pos,traj[i].grn,params);
+      traj[i+1].pos = gen_midpt(traj[i].pos,traj[i].grn,params);
     }
   }
+
+  // leapfrog trajectory without MHMC
+  if(params.method==2 && params.MHMC==0){
+    for(i=0;i<params.num-1;i++){
+      traj[i+1].pos = gen_simpson(traj[i].pos,traj[i].grn,params);
+    }
+  }
+  return(MHMC_acc);
 }
 
