@@ -45,107 +45,72 @@ double simpson_Force(double x1,double x0){
   return (Force(x1) + 4.0*Force(0.5*(x1+x0)) + Force(x0))*0.16666666666666666666;
 }
 
+double gen_next_step(double x0,double random_gauss, parameters params){
 
-double gen_leapfrog(double x0,double random_gauss, parameters params){
-  // return new step with leap frog quadrature
-  return x0 + params.dt * Force(x0) + params.noisePref * random_gauss;
-}
-
-double gen_midpt(double x0,double random_gauss, parameters params){
-  // return new step with midpoint quadrature (implicit method)
-  // save the initial point
+  // save the initial point into two variables
+  // these will be iterated upon in midpt and simpson
   double xsave = x0;
-  // guess the new step according to leap frog
-  double xguess = x0 + params.dt * Force(x0) + params.noisePref * random_gauss;
+  double xnew = x0;
 
-  //calculate new step iteratively with midpoint force
-  while(abs(xguess-xsave) > 0.00000000001) {
-    xsave=xguess;
-    xguess = x0 + params.dt*midpt_Force(xguess,x0) + params.noisePref * random_gauss;
-  }
-  return xguess;
-}
+  switch(params.method) {
+    case 0 :
+      // return new step with leap frog quadrature
+      xnew = x0 + params.dt * Force(x0) + params.noisePref * random_gauss;
+      break;
 
-double gen_simpson(double x0,double random_gauss, parameters params){
-  // return new step with simpsons quadrature (implicit method)
-  // save the initial point
-  double xsave = x0;
-  // guess the new step according to leap frog
-  double xguess = x0 + params.dt * Force(x0) + params.noisePref * random_gauss;
+    case 1 :
+      // return new step with midpoint quadrature (implicit method)
+      // guess the new step according to leap frog
+      xnew = x0 + params.dt * Force(x0) + params.noisePref * random_gauss;
 
-  //calculate new step iteratively with simsons force
-  while(abs(xguess-xsave) > 0.00000000001) {
-    xsave=xguess;
-    xguess = x0 + params.dt*simpson_Force(xguess,x0) + params.noisePref * random_gauss;
-  }
-  return xguess;
-}
-
-/*
-int create_trajectory(traj_array* traj, parameters params){
-  // Create the whole trajectory and keep track of B(s)
-  int i;
-  int MHMC_acc = 0;
-
-  double inv_eps=1.0/params.eps;
-
-  double MHMC_criteria;
-  double proposed_move;
-
-  //save value of the broad well fraction
-  traj[0].pos=params.xstart;
-
-  // leapfrog trajectory without MHMC
-  if(params.method==0 && params.MHMC==0){
-    for(i=0;i<params.num-1;i++){
-      traj[i+1].pos = gen_leapfrog(traj[i].pos,traj[i].grn,params);
-    }
-  }
-
-  //TODO THIS IS NOT CORRECT!
-  // leapfrog trajectory with MHMC
-  if(params.method==0 && params.MHMC==1){
-    // calculate 1/(2*eps) for use later
-
-
-    for(i=0;i<params.num-1;i++){
-      // generate the proposal move
-      proposed_move = gen_leapfrog(traj[i].pos,traj[i].grn,params);
-
-      // perform the metropolis hastings test
-      MHMC_criteria = exp( -( Pot(proposed_move) - Pot(traj[i].pos) )*inv_eps);
-      if(MHMC_criteria > traj[i].rand){
-        traj[i+1].pos=proposed_move;
-        MHMC_acc+=1;
+      // calculate new step iteratively with midpoint force
+      while(abs(xnew-xsave) > 0.00000000001) {
+        xsave=xnew;
+        xnew = x0 + params.dt*midpt_Force(xnew,x0) + params.noisePref * random_gauss;
       }
-      else{
-        traj[i+1].pos=traj[i].pos;
+      break;
+
+    case 2 :
+      // return new step with simpsons quadrature (implicit method)
+      // guess the new step according to leap frog
+      xnew = x0 + params.dt * Force(x0) + params.noisePref * random_gauss;
+
+      //calculate new step iteratively with simsons force
+      while(abs(xnew-xsave) > 0.00000000001) {
+        xsave=xnew;
+        xnew = x0 + params.dt*simpson_Force(xnew,x0) + params.noisePref * random_gauss;
       }
-    }
+      break;
   }
 
-  // midpt trajectory without MHMC
-  if(params.method==1 && params.MHMC==0){
-    for(i=0;i<params.num-1;i++){
-      traj[i+1].pos = gen_midpt(traj[i].pos,traj[i].grn,params);
-    }
-  }
-
-  // leapfrog trajectory without MHMC
-  if(params.method==2 && params.MHMC==0){
-    for(i=0;i<params.num-1;i++){
-      traj[i+1].pos = gen_simpson(traj[i].pos,traj[i].grn,params);
-    }
-  }
-  return(MHMC_acc);
+  //return the final new step
+  return(xnew);
 }
-*/
 
+double energy_drift(double x1, double x0, parameters params){
 
+  double energy = 0.0;
 
+  double Fx1 = Force(x1);
+  double Fx0= Force(x0);
 
+  switch(params.method) {
+    case 0 :
+      //leapfrog energy drift
+      energy = 0.5*(x1-x0)*(Fx1+Fx0)+params.dt*0.25*(Fx1*Fx1-Fx0*Fx0)+Pot(x1)-Pot(x0);
+      break;
+    case 1 :
+      //midpt energy drift
+      energy = (x1-x0)*midpt_Force(x1,x0)+Pot(x1)-Pot(x0);
+      break;
+    case 2 :
+      //simpson energy drift
+      energy = (x1-x0)*simpson_Force(x1,x0)+Pot(x1)-Pot(x0);
+      break;
+  }
 
-
+  return(energy);
+}
 
 
 
@@ -164,55 +129,79 @@ int main(int argc, char *argv[])
   params.method = atoi(argv[5]);
   params.MHMC = atoi(argv[6]);
 
+  int loops = atoi(argv[7]);
+  int suppress_print= atoi(argv[8]);
+
   params.noisePref = sqrt(2.0*params.eps*params.dt);
+
 
   //===============================================================
   // GNU Scientific Library Random Number Setup
   //===============================================================
   // Example shell command$ GSL_RNG_SEED=123 ./a.out
-  printf("=======================================================\n");
   const gsl_rng_type * RanNumType;
   gsl_rng *RanNumPointer; 
   gsl_rng_env_setup();
   RanNumType = gsl_rng_default;
   RanNumPointer= gsl_rng_alloc (RanNumType);
-  printf("Random Number Generator Type: %s \n", gsl_rng_name(RanNumPointer));
-  printf("RNG Seed: %li \n", gsl_rng_default_seed);
-  printf("=======================================================\n");
 
-  //printf("%f\n",gsl_rng_uniform(RanNumPointer));
-  //printf("%f\n",gsl_ran_gaussian(RanNumPointer,1));
-
-  double x1;
-  double x0 = params.xstart;
-  int acc = 0;
-  int Bs = 0;
-
-  int i;
-  double inv_eps=1.0/params.eps;
-  double Fx1;
-  double Fx0;
-  double energy;
-
-  for(i=0;i<params.num;i++){
-    // generate the proposal move
-    x1 = gen_leapfrog(x0,gsl_ran_gaussian(RanNumPointer,1),params);
-
-    // perform the metropolis hastings test
-    Fx1= Force(x1);
-    Fx0= Force(x0);
-    energy = 0.5*(x1-x0)*(Fx1+Fx0)+params.dt*0.25*(Fx1*Fx1-Fx0*Fx0)+Pot(x1)-Pot(x0);
-
-    if(exp( -energy * inv_eps) > gsl_rng_uniform(RanNumPointer)){
-      x0 = x1;
-      acc+=1;
-    }
-    if(x0>0){
-      Bs++;
-    }
+  //print parameters to stdout
+  if(suppress_print == 1){
+    printf("=======================================================\n");
+    printf("dt:   %f\n",params.dt);
+    printf("eps:  %f\n",params.eps);
+    printf("x(0): %f\n",params.xstart);
+    printf("num:  %i\n",params.num);
+    printf("method {0:leapfrog,1:midpt,2:simpson}: %i\n",params.method);
+    printf("MHMC {0:No,1:Yes}: %i\n",params.MHMC);
+    printf("RNG: %s ", gsl_rng_name(RanNumPointer));
+    printf("RNG Seed: %li \n", gsl_rng_default_seed);
+    printf("=======================================================\n");
   }
 
-  printf("%f\n",(float)Bs/params.num);
+  double inv_eps=1.0/params.eps;
+
+  int acc;
+  int Bs;
+
+  double x1;
+  double x0;
+
+  int loop_iterator;
+  int i;
+
+  for(loop_iterator = 0; loop_iterator<loops; loop_iterator++){
+    Bs = 0;
+    acc = 0;
+    x0 = params.xstart;
+
+    for(i=0;i<params.num;i++){
+      // generate the proposal move with params.method quadrature
+      x1 = gen_next_step(x0,gsl_ran_gaussian(RanNumPointer,1),params);
+
+      // perform the metropolis hastings test if params.MHMC==1
+      if(params.MHMC == 1){ 
+        //accept move if MHMC is satisfied
+        if(exp( -energy_drift(x1,x0,params) * inv_eps) > gsl_rng_uniform(RanNumPointer)){
+          x0 = x1;
+          acc+=1;
+        }
+      }
+      else{ 
+        //always accept move  when MHMC is off (no rejections)
+        x0=x1;
+      }
+
+      //calculate the broad well fraction (not averaged here)
+      if(x0>0){
+        Bs++;
+      }
+    }
+
+    printf("%f\n",(float)Bs/params.num);
+  }
+
+  // free the GSL RNG memory pointers
   gsl_rng_free (RanNumPointer);
 
 }
