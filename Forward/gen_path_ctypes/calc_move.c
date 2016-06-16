@@ -156,19 +156,13 @@ int main(int argc, char *argv[])
   parameters params;
   //Initialize the params struct
   // argument order: dt eps noisePref xstart num method MHMC
+  // the order needs to be changed in the bash script if it is changed here!
   params.dt = atof(argv[1]);
   params.eps = atof(argv[2]);
   params.xstart = atof(argv[3]);
   params.num = atoi(argv[4]);
   params.method = atoi(argv[5]);
   params.MHMC = atoi(argv[6]);
-
-  printf("dt %f\n", params.dt);
-  printf("eps %f\n",params.eps);
-  printf("xstart %f\n",params.xstart);
-  printf("num %i\n",params.num);
-  printf("method %i\n",params.method);
-  printf("MHMC %i\n",params.MHMC);
 
   params.noisePref = sqrt(2.0*params.eps*params.dt);
 
@@ -186,10 +180,39 @@ int main(int argc, char *argv[])
   printf("RNG Seed: %li \n", gsl_rng_default_seed);
   printf("=======================================================\n");
 
+  //printf("%f\n",gsl_rng_uniform(RanNumPointer));
+  //printf("%f\n",gsl_ran_gaussian(RanNumPointer,1));
 
-  printf("%f\n",gsl_rng_uniform(RanNumPointer));
-  printf("%f\n",gsl_ran_gaussian(RanNumPointer,1));
+  double x1;
+  double x0 = params.xstart;
+  int acc = 0;
+  int Bs = 0;
 
+  int i;
+  double inv_eps=1.0/params.eps;
+  double Fx1;
+  double Fx0;
+  double energy;
+
+  for(i=0;i<params.num;i++){
+    // generate the proposal move
+    x1 = gen_leapfrog(x0,gsl_ran_gaussian(RanNumPointer,1),params);
+
+    // perform the metropolis hastings test
+    Fx1= Force(x1);
+    Fx0= Force(x0);
+    energy = 0.5*(x1-x0)*(Fx1+Fx0)+params.dt*0.25*(Fx1*Fx1-Fx0*Fx0)+Pot(x1)-Pot(x0);
+
+    if(exp( -energy * inv_eps) > gsl_rng_uniform(RanNumPointer)){
+      x0 = x1;
+      acc+=1;
+    }
+    if(x0>0){
+      Bs++;
+    }
+  }
+
+  printf("%f\n",(float)Bs/params.num);
   gsl_rng_free (RanNumPointer);
 
 }
