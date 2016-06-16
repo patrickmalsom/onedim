@@ -2,118 +2,206 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// Parameters Struct 
-// Stores many useful constants that are defined in the python code
-// ( see python code for comments)
-typedef struct _parameters
-{
+//GNU Scientific Libraries
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
+#include <gsl/gsl_math.h>
+
+typedef struct _parameters{
   double dt;
   double eps;
   double noisePref;
   double xstart;
   int num;
-  int method;
+  int method; //0:leapfrog 1:midpt 2:simpson
+  int MHMC; //boolean for MHMC on:1 off:0
 } parameters;
 
-typedef struct _traj_array
-{
-  double grn;
-  double pos;
-} traj_array;
 
-/* =====================================================================
- * Potential Definitions: Fatter-Skinnier Potential: (8 - 5*x)**8 * (2 + 5*x)**2 / 2**26
- * -----------------------------
- *   Pot:       U(x)          -> returns the potential at a position
- *   Force:     F(x)=-dU/dx   -> returns the force at a position
-*/
-
-// Calculate the fatter-skinny potential ( U(x) )
 double Pot(double x){
-  // Calculate: ((8 - 5 x)^8 (2. + 5 x)^2)/2^26
-  // Horner form for the potential:
+  // Calculate the fatter-skinny potential ( U(x) )
+  // Horner form of: ((8 - 5 x)^8 (2. + 5 x)^2)/2^26
   return x*x*(x*(x*(x*(x*(x*(x*(x*(0.145519152283669*x - 1.74622982740402) + 8.96397978067398) - 25.331974029541) + 41.7232513427734) - 37.384033203125) + 10.68115234375) + 9.765625) - 7.8125) + 1.0; 
-
-
 }
 
-//Calculate the fatter skinny Force ( F = - dU(x)/dx )
-double Force(double x){
 
-  // Calculate: -250*x*(5*x-8)**7*(5*x+2)/2**26
-  // Horner Form for the force
+double Force(double x){
+  // Calculate the fatter skinny Force ( F = - dU(x)/dx )
+  // Horner form of: -250*x*(5*x-8)**7*(5*x+2)/2**26
   return x*(x*(x*(x*(x*(x*(x*(x*(-1.45519152283669*x + 15.7160684466362) - 71.7118382453918) + 177.323818206787) - 250.339508056641) + 186.920166015625) - 42.724609375) - 29.296875) + 15.625);
 }
-// return the force at the mid point
+
+
 double midpt_Force(double x1,double x0){
+  // return the force at the mid point
   // F_w(x1,x0) = F( (x1+x0)/2 )
   return Force(0.5*(x1+x0));
 }
 
-// return the force according to simpsons method
+
 double simpson_Force(double x1,double x0){
+  // return the force according to simpsons method
   // F_w(x1,x0) = ( F(x1) + 4*F((x1+x0)/2) + F(x0) )/6
   return (Force(x1) + 4.0*Force(0.5*(x1+x0)) + Force(x0))*0.16666666666666666666;
 }
 
-double new_leapfrog(double x0,double random_gauss, parameters params){
-  // return new step 
-  return x0 + params.dt * Force(x0) + params.noisePref * random_gauss;
-}
+double gen_next_step(double x0,double random_gauss, parameters params){
 
-double new_midpt(double x0,double random_gauss, parameters params){
-  // save the initial point
+  // save the initial point into two variables
+  // these will be iterated upon in midpt and simpson
   double xsave = x0;
-  // guess the new step according to leap frog
-  double xguess = x0 + params.dt * Force(x0) + params.noisePref * random_gauss;
+  double xnew = x0;
 
-  //calculate new step iteratively with midpoint force
-  while(abs(xguess-xsave) > 0.00000000001) {
-    xsave=xguess;
-    xguess = x0 + params.dt*midpt_Force(xguess,x0) + params.noisePref * random_gauss;
+  switch(params.method) {
+    case 0 :
+      // return new step with leap frog quadrature
+      xnew = x0 + params.dt * Force(x0) + params.noisePref * random_gauss;
+      break;
+
+    case 1 :
+      // return new step with midpoint quadrature (implicit method)
+      // guess the new step according to leap frog
+      xnew = x0 + params.dt * Force(x0) + params.noisePref * random_gauss;
+
+      // calculate new step iteratively with midpoint force
+      while(abs(xnew-xsave) > 0.00000000001) {
+        xsave=xnew;
+        xnew = x0 + params.dt*midpt_Force(xnew,x0) + params.noisePref * random_gauss;
+      }
+      break;
+
+    case 2 :
+      // return new step with simpsons quadrature (implicit method)
+      // guess the new step according to leap frog
+      xnew = x0 + params.dt * Force(x0) + params.noisePref * random_gauss;
+
+      //calculate new step iteratively with simsons force
+      while(abs(xnew-xsave) > 0.00000000001) {
+        xsave=xnew;
+        xnew = x0 + params.dt*simpson_Force(xnew,x0) + params.noisePref * random_gauss;
+      }
+      break;
   }
-  return xguess;
+
+  //return the final new step
+  return(xnew);
 }
 
-double new_simson(double x0,double random_gauss, parameters params){
-  // save the initial point
-  double xsave = x0;
-  // guess the new step according to leap frog
-  double xguess = x0 + params.dt * Force(x0) + params.noisePref * random_gauss;
+double energy_drift(double x1, double x0, parameters params){
 
-  //calculate new step iteratively with simsons force
-  while(abs(xguess-xsave) > 0.00000000001) {
-    xsave=xguess;
-    xguess = x0 + params.dt*simpson_Force(xguess,x0) + params.noisePref * random_gauss;
+  double energy = 0.0;
+
+  double Fx1 = Force(x1);
+  double Fx0= Force(x0);
+
+  switch(params.method) {
+    case 0 :
+      //leapfrog energy drift
+      energy = 0.5*(x1-x0)*(Fx1+Fx0)+params.dt*0.25*(Fx1*Fx1-Fx0*Fx0)+Pot(x1)-Pot(x0);
+      break;
+    case 1 :
+      //midpt energy drift
+      energy = (x1-x0)*midpt_Force(x1,x0)+Pot(x1)-Pot(x0);
+      break;
+    case 2 :
+      //simpson energy drift
+      energy = (x1-x0)*simpson_Force(x1,x0)+Pot(x1)-Pot(x0);
+      break;
   }
-  return xguess;
+
+  return(energy);
 }
 
-void create_trajectory(traj_array* traj, parameters params){
-  // Create the whole trajectory and keep track of B(s)
+
+
+int main(int argc, char *argv[])
+{
+
+  //Declare params
+  parameters params;
+  //Initialize the params struct
+  // argument order: dt eps noisePref xstart num method MHMC
+  // the order needs to be changed in the bash script if it is changed here!
+  params.dt = atof(argv[1]);
+  params.eps = atof(argv[2]);
+  params.xstart = atof(argv[3]);
+  params.num = atoi(argv[4]);
+  params.method = atoi(argv[5]);
+  params.MHMC = atoi(argv[6]);
+
+  int loops = atoi(argv[7]);
+  int suppress_print= atoi(argv[8]);
+
+  params.noisePref = sqrt(2.0*params.eps*params.dt);
+
+
+  //===============================================================
+  // GNU Scientific Library Random Number Setup
+  //===============================================================
+  // Example shell command$ GSL_RNG_SEED=123 ./a.out
+  const gsl_rng_type * RanNumType;
+  gsl_rng *RanNumPointer; 
+  gsl_rng_env_setup();
+  RanNumType = gsl_rng_default;
+  RanNumPointer= gsl_rng_alloc (RanNumType);
+
+  //print parameters to stdout
+  if(suppress_print == 1){
+    printf("=======================================================\n");
+    printf("dt:   %f\n",params.dt);
+    printf("eps:  %f\n",params.eps);
+    printf("x(0): %f\n",params.xstart);
+    printf("num:  %i\n",params.num);
+    printf("method {0:leapfrog,1:midpt,2:simpson}: %i\n",params.method);
+    printf("MHMC {0:No,1:Yes}: %i\n",params.MHMC);
+    printf("RNG: %s ", gsl_rng_name(RanNumPointer));
+    printf("RNG Seed: %li \n", gsl_rng_default_seed);
+    printf("=======================================================\n");
+  }
+
+  double inv_eps=1.0/params.eps;
+
+  int acc;
+  int Bs;
+
+  double x1;
+  double x0;
+
+  int loop_iterator;
   int i;
-  //save value of the broad well fraction
-  traj[0].pos=params.xstart;
 
-  // leapfrog trajectory
-  if(params.method==0){
-    for(i=0;i<params.num-1;i++){
-      traj[i+1].pos = new_leapfrog(traj[i].pos,traj[i].grn,params);
+  for(loop_iterator = 0; loop_iterator<loops; loop_iterator++){
+    Bs = 0;
+    acc = 0;
+    x0 = params.xstart;
+
+    for(i=0;i<params.num;i++){
+      // generate the proposal move with params.method quadrature
+      x1 = gen_next_step(x0,gsl_ran_gaussian(RanNumPointer,1),params);
+
+      // perform the metropolis hastings test if params.MHMC==1
+      if(params.MHMC == 1){ 
+        //accept move if MHMC is satisfied
+        if(exp( -energy_drift(x1,x0,params) * inv_eps) > gsl_rng_uniform(RanNumPointer)){
+          x0 = x1;
+          acc+=1;
+        }
+      }
+      else{ 
+        //always accept move  when MHMC is off (no rejections)
+        x0=x1;
+      }
+
+      //calculate the broad well fraction (not averaged here)
+      if(x0>0){
+        Bs++;
+      }
     }
+
+    printf("%f\n",(float)Bs/params.num);
   }
 
-  // midpt trajectory
-  if(params.method==0){
-    for(i=0;i<params.num-1;i++){
-      traj[i+1].pos = new_midpt(traj[i].pos,traj[i].grn,params);
-    }
-  }
+  // free the GSL RNG memory pointers
+  gsl_rng_free (RanNumPointer);
 
-  // leapfrog trajectory
-  if(params.method==0){
-    for(i=0;i<params.num-1;i++){
-      traj[i+1].pos = new_simpson(traj[i].pos,traj[i].grn,params);
-    }
-  }
 }
-
