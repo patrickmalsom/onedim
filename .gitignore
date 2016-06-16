@@ -9,4 +9,5 @@ log
 *.pdf
 *.mp4
 *.so
+*.o
 *.out
