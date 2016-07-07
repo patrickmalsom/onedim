@@ -27,7 +27,7 @@ while getopts "t:e:x:n:m:c:l:p" arg; do
             METHOD=${OPTARG} ;;
         c) # MHMC boolean {0:off,1:on} : default 0
             MHMC=${OPTARG} ;;
-        l) # MHMC boolean {0:off,1:on} : default 0
+        l) # number of times to perform the calculation
             LOOPS=${OPTARG} ;;
         p) # suppress run information to stdout
             PRINT=0 ;;
@@ -37,4 +37,4 @@ while getopts "t:e:x:n:m:c:l:p" arg; do
 done
 shift $((OPTIND-1))
 
-GSL_RNG_SEED=$(shuf -i 2-999999999 -n 1) ./calc_move.out $DT $EPS $XSTART $NUM $METHOD $MHMC $LOOPS $PRINT 2> /dev/null
+GSL_RNG_SEED=$(shuf -i 2-999999999 -n 1) ./forward_B.out $DT $EPS $XSTART $NUM $METHOD $MHMC $LOOPS $PRINT 2> /dev/null
