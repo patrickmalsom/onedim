@@ -2,14 +2,16 @@
 
 CC=gcc
 
-CFLAGS=-shared -Wall -Warray-bounds -fPIC -march=native -O2 -g
-LFLAGS=-lm -lgsl -lgslcblas
-INCLUDEDIRS= -I/usr/include
-LIBDIRS= -L/usr/lib64
+CFLAGS=-Wall -Warray-bounds -fPIC -O2 -g
+LFLAGS=-lgsl -lgslcblas -lm
+INCLUDEDIRS= -I/usr/include -I./gsl-build/include 
+LIBDIRS= -L/lib64 -L./gsl-build/lib 
+#INCLUDEDIRS= -I/usr/include
+#LIBDIRS= -L/lib64
 
 all: forward_B
 
-forward_B.o: forward_B.c ; $(CC) $(INCLUDEDIRS) $(CFLAGS) -c forward_B.c
-forward_B : forward_B.o; $(CC) $(LIBDIRS) $(LFLAGS) forward_B.o -o forward_B.out
+forward_B.o: forward_B.c ; $(CC) -static $(INCLUDEDIRS) $(CFLAGS) -c forward_B.c
+forward_B : forward_B.o; $(CC) -static  forward_B.o -o forward_B.out $(LFLAGS) $(LIBDIRS)
 
 clean: ; rm forward_B.o forward_B.out
