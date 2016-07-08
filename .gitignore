@@ -1,5 +1,6 @@
 wiki
 log
+gsl*
 
 *Cython.c
 *.pyc

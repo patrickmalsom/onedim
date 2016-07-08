@@ -4,8 +4,8 @@ CC=gcc
 
 CFLAGS=-Wall -Warray-bounds -fPIC -O2 -g
 LFLAGS=-lgsl -lgslcblas -lm
-INCLUDEDIRS= -I/usr/include -I./gsl-build/include 
-LIBDIRS= -L/lib64 -L./gsl-build/lib 
+INCLUDEDIRS= -I/usr/include -I./gsl-1.16/include 
+LIBDIRS= -L/lib64 -L./gsl-1.16/lib 
 #INCLUDEDIRS= -I/usr/include
 #LIBDIRS= -L/lib64
 
