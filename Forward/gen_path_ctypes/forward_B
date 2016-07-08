@@ -7,11 +7,13 @@ NUM=100
 METHOD=1 # {0:leapfrog, 1:midpt, 2:simpson}
 MHMC=0
 LOOPS=1
+UPPER=100
+LOWER=-100
 PRINT=1 # print run parameters on command line
 
-usage() { echo "$0 usage:   [-t dt] [-e eps] [-x xstart] [-n num] [-m method] [-c MHMC] [-l loops] [-d] [-p] [-h]" && echo "" && echo "Detailed help:" && grep " .)\ #" $0 | sed s/\ \#//g ; exit 1; }
+usage() { echo "$0 usage:   [-t dt] [-e eps] [-x xstart] [-n num] [-m method] [-c MHMC] [-L loops] [-u upper] [-l lower] [-d] [-p] [-h]" && echo "" && echo "Detailed help:" && grep " .)\ #" $0 | sed s/\ \#//g ; exit 1; }
 
-while getopts "dpht:e:x:n:m:c:l:" arg; do
+while getopts "dpht:e:x:n:m:c:L:u:l:" arg; do
     case "${arg}" in
         h) # print this help
             usage ;;
@@ -31,8 +33,12 @@ while getopts "dpht:e:x:n:m:c:l:" arg; do
             METHOD=${OPTARG} ;;
         c) # MHMC boolean {0:off,1:on}         : default 0
             MHMC=${OPTARG} ;;
-        l) # times to perform the calculation  : default 1
+        L) # times to perform the calculation  : default 1
             LOOPS=${OPTARG} ;;
+        u) # upper bound for acceptance of path: default 100
+            UPPER=${OPTARG} ;;
+        l) # lower bound for acceptance of path: default -100
+            LOWER=${OPTARG} ;;
         *)
             usage ;;
     esac
@@ -44,4 +50,4 @@ if [ $OPTIND -eq 1 ] ; then
     exit 0
 fi
 
-GSL_RNG_SEED=$(shuf -i 2-999999999 -n 1) ./forward_B.out $DT $EPS $XSTART $NUM $METHOD $MHMC $LOOPS $PRINT 2> /dev/null
+GSL_RNG_SEED=$(shuf -i 2-999999999 -n 1) ./forward_B.out $DT $EPS $XSTART $NUM $METHOD $MHMC $LOOPS $PRINT $UPPER $LOWER 2> /dev/null

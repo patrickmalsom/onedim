@@ -132,6 +132,9 @@ int main(int argc, char *argv[])
   int loops = atoi(argv[7]);
   int suppress_print= atoi(argv[8]);
 
+  double upper_boundary = atof(argv[9]);
+  double lower_boundary = atof(argv[10]);
+
   params.noisePref = sqrt(2.0*params.eps*params.dt);
 
 
@@ -154,6 +157,7 @@ int main(int argc, char *argv[])
     printf("num:  %i\n",params.num);
     printf("method {0:leapfrog,1:midpt,2:simpson}: %i\n",params.method);
     printf("MHMC {0:No,1:Yes}: %i\n",params.MHMC);
+    printf("BCs lower:%f upper:%f\n", lower_boundary, upper_boundary);
     printf("RNG: %s ", gsl_rng_name(RanNumPointer));
     printf("RNG Seed: %li \n", gsl_rng_default_seed);
     printf("=======================================================\n");
@@ -198,7 +202,19 @@ int main(int argc, char *argv[])
       }
     }
 
-    printf("%f\n",(float)Bs/params.num);
+    // print B(s) if BC's are satisfied
+    if( x0 > upper_boundary )
+    {
+      printf("BC failure. pos:%f\n",(x0));
+    }
+    else if(x0 < lower_boundary)
+    {
+      printf("BC failure. pos:%f\n",(x0));
+    }
+    else
+    {
+      printf("%f\n",(float)Bs/params.num);
+    }
   }
 
   // free the GSL RNG memory pointers
